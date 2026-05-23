@@ -4,67 +4,91 @@
 
 @layer base {
   :root {
-    /* Dark Theme is now default */
-    --background: 240 10% 4%; /* Near black */
-    --foreground: 0 0% 98%; /* Almost white */
+    /* Light Mode */
+    --background: 0 0% 96%; /* #F4F4F4 */
+    --foreground: 0 0% 7%; /* #111111 */
 
-    --card: 240 10% 9%;
-    --card-foreground: 0 0% 98%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 7%;
 
-    --popover: 240 10% 4%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 0 0% 96%;
+    --popover-foreground: 0 0% 7%;
 
-    --primary: 45 93% 55%; /* Vibrant yellow/gold */
-    --primary-foreground: 45 93% 15%; /* Dark color for text on yellow */
+    --primary: 0 100% 24%; /* Crimson #7A0000 */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 5% 15%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 0 0% 92%; /* #EBEBEB */
+    --secondary-foreground: 0 0% 7%;
 
-    --muted: 240 5% 20%;
-    --muted-foreground: 240 5% 65%;
+    --muted: 0 0% 88%;
+    --muted-foreground: 0 0% 47%; /* #777777 */
 
-    --accent: 210 100% 56%; /* Keep the blue for secondary accents */
+    --accent: 0 76% 16%; /* #4A0A0A */
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 63% 31%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 5% 20%;
-    --input: 240 5% 15%;
-    --ring: 45 93% 55%; /* Ring is yellow */
+    --border: 0 0% 90%;
+    --input: 0 0% 92%;
+    --ring: 0 100% 24%;
 
-    --radius: 0.5rem;
+    --radius: 1.5rem; /* 24px rounded corners */
 
-    --chart-1: 45 93% 55%;
-    --chart-2: 210 100% 66%;
+    --chart-1: 0 100% 24%;
+    --chart-2: 0 76% 16%;
     --chart-3: 120 60% 55%;
     --chart-4: 260 80% 65%;
     --chart-5: 0 72% 51%;
+
+    /* Glassmorphism Light Tokens */
+    --glass-surface: rgba(255, 255, 255, 0.58);
+    --glass-border: rgba(0, 0, 0, 0.05);
+    --glass-blur: 8px;
+    --glass-shadow: 0 10px 35px rgba(0, 0, 0, 0.08);
+    --card-gradient-start: rgba(255, 255, 255, 0.75);
+    --card-gradient-end: rgba(255, 255, 255, 0.55);
   }
 
   .dark {
-    /* Ensure .dark class uses the same variables */
-    --background: 240 10% 4%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 4%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 45 93% 55%;
-    --primary-foreground: 45 93% 15%;
-    --secondary: 240 5% 15%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 5% 20%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 210 100% 56%;
+    /* Dark Mode - Premium Futuristic Cinematic DRF style */
+    --background: 0 0% 2.4%; /* #060606 */
+    --foreground: 0 0% 100%;
+
+    --card: 0 0% 5.5%; /* #0E0E0E */
+    --card-foreground: 0 0% 100%;
+
+    --popover: 0 0% 2.4%; /* #060606 */
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 0 100% 27.3%; /* Crimson #8B0000 */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 5.5%; /* #0E0E0E */
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 70%; /* #B3B3B3 */
+
+    --accent: 0 80% 20%; /* #5C0A0A */
     --accent-foreground: 0 0% 100%;
+
     --destructive: 0 63% 31%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5% 20%;
-    --input: 240 5% 15%;
-    --ring: 45 93% 55%;
-    --chart-1: 45 93% 55%;
-    --chart-2: 210 100% 66%;
+
+    --border: 0 0% 12%; /* #1F1F1F */
+    --input: 0 0% 5.5%; /* #0E0E0E */
+    --ring: 0 100% 27.3%;
+    --chart-1: 0 100% 27.3%;
+    --chart-2: 0 80% 20%;
+
+    /* Glassmorphism Dark Tokens */
+    --glass-surface: rgba(255, 255, 255, 0.06);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-blur: 12px;
+    --glass-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+    --card-gradient-start: rgba(255, 255, 255, 0.05);
+    --card-gradient-end: rgba(255, 255, 255, 0.02);
   }
 }
 
@@ -75,6 +99,8 @@
   body {
     @apply bg-background text-foreground;
     @apply font-body;
+    font-weight: 400;
+    line-height: 1.7;
   }
   h1,
   h2,
@@ -83,6 +109,9 @@
   h5,
   h6 {
     @apply font-headline;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 }
 
@@ -98,5 +127,60 @@
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  /* Glassmorphism class implementations */
+  .glassmorphism {
+    background: var(--glass-surface);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+
+  .glassmorphism-card {
+    background: linear-gradient(180deg, var(--card-gradient-start), var(--card-gradient-end));
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+
+  /* Cinematic overlay & Vignette */
+  .cinematic-vignette {
+    position: relative;
+  }
+  .cinematic-vignette::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle, transparent 40%, rgba(0, 0, 0, 0.6) 100%);
+  }
+
+  /* Soft Grain Texture (Optimized: Static noise to reduce CPU drawing) */
+  .grain-overlay {
+    position: relative;
+  }
+  .grain-overlay::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.015"/%3E%3C/svg%3E') repeat;
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
+/* Optimize performance on mobile viewports by disabling transition wait times */
+@media (max-w: 767px) {
+  *, *::before, *::after {
+    transition-duration: 0.05s !important;
+    animation-duration: 0.01s !important;
+    animation-iteration-count: 1 !important;
   }
 }

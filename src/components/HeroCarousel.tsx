@@ -1,44 +1,54 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import TransitionLink from '@/components/TransitionLink';
 import { Button } from '@/components/ui/button';
 import StarRating from '@/components/StarRating';
-import { PlayIcon } from 'lucide-react';
+import { Play, Info, Film } from 'lucide-react';
 import type { MovieOutput } from '@/ai/schemas/movie-schemas';
 import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function HeroCarousel({ items }: { items: MovieOutput[] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isFading, setIsFading] = useState(false);
+  const [direction, setDirection] = useState(1); // 1 = next, -1 = prev
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Monitor size to disable resource-intensive animations on mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const handleSlideChange = useCallback((newIndex: number) => {
     if (newIndex === currentIndex) return;
-    setIsFading(true);
-    setTimeout(() => {
-      setCurrentIndex(newIndex);
-      setIsFading(false);
-    }, 400); // Match this with CSS transition duration
+    setDirection(newIndex > currentIndex ? 1 : -1);
+    setCurrentIndex(newIndex);
   }, [currentIndex]);
 
   useEffect(() => {
     if (items.length <= 1) return;
 
     const intervalId = setInterval(() => {
-      handleSlideChange((currentIndex + 1) % items.length);
-    }, 7000); // Change slide every 7 seconds
+      setDirection(1);
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % items.length);
+    }, 9000); // 9 seconds for slow-zoom background visibility
 
     return () => clearInterval(intervalId);
-  }, [items.length, currentIndex, handleSlideChange]);
+  }, [items.length]);
 
   if (!items || items.length === 0) {
     return null;
   }
-  
+
   const currentItem = items[currentIndex];
 
-  const sanitizedSrc = React.useMemo(() => {
+  const sanitizedSrc = useMemo(() => {
     if (!currentItem) return undefined;
     const url = currentItem.backdropUrl || currentItem.posterUrl;
     if (!url || url.includes('/title/') || url.includes('/name/') || !url.startsWith('http')) {
@@ -47,82 +57,175 @@ export default function HeroCarousel({ items }: { items: MovieOutput[] }) {
     return url;
   }, [currentItem]);
 
-  if (!currentItem) {
-    return null;
-  }
-  
+  // Helper helper to bypass animations on mobile
+  const animVariants = (delay: number, yOffset = 15) => {
+    if (isMobile) {
+      return {
+        initial: { opacity: 1, y: 0 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0 }
+      };
+    }
+    return {
+      initial: { opacity: 0, y: yOffset },
+      animate: { opacity: 1, y: 0 },
+      transition: { delay, duration: 0.5 }
+    };
+  };
+
   return (
-    <div className="relative w-full h-[60vh] md:h-[80vh] rounded-2xl overflow-hidden text-white flex items-end">
-      {/* Background Image */}
-      <div
-        className={cn(
-          "absolute inset-0 transition-opacity duration-500 ease-in-out",
-          isFading ? 'opacity-0' : 'opacity-100'
-        )}
-      >
-        {sanitizedSrc && (
-          <Image
-            src={sanitizedSrc}
-            alt={`Backdrop for ${currentItem.title}`}
-            fill
-            priority={currentIndex === 0}
-            className="object-cover"
-            data-ai-hint={currentItem.dataAiHint || "movie background"}
-            key={currentItem.id}
-          />
-        )}
+    <div className="relative w-full h-[65vh] md:h-[88vh] rounded-[32px] overflow-hidden text-white flex items-end shadow-2xl border border-white/5 bg-black">
+      {/* Background Image Carousel with Ken Burns / Slow Zoom effect */}
+      <div className="absolute inset-0 overflow-hidden select-none">
+        <AnimatePresence mode="wait">
+          {sanitizedSrc && (
+            <motion.div
+              key={`${currentItem.id}-${currentIndex}`}
+              initial={isMobile ? { opacity: 1 } : { scale: 1.05, opacity: 0 }}
+              animate={isMobile ? { opacity: 1 } : { scale: 1.15, opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={isMobile ? { duration: 0.1 } : { duration: 7, ease: "easeOut" }}
+              className="absolute inset-0 w-full h-full"
+            >
+              <Image
+                src={sanitizedSrc}
+                alt={`Backdrop for ${currentItem.title}`}
+                fill
+                priority
+                className="object-cover object-top filter brightness-95 contrast-105"
+                sizes="100vw"
+                data-ai-hint="hero backdrop"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
-      
-      <div className="relative z-10 p-6 md:p-12 w-full flex justify-between items-end">
-        <div
-          className={cn(
-            "w-full md:w-2/3 lg:w-1/2 space-y-4 transition-all duration-500 ease-in-out",
-            isFading ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
-          )}
-        >
-            <h1 className="text-4xl md:text-6xl font-black font-headline" style={{ textShadow: '2px 2px 8px rgba(0,0,0,0.7)' }}>
-              {currentItem.title.toUpperCase()}
-            </h1>
-            <div className="flex items-center space-x-2">
-              <StarRating initialRating={currentItem.rating} readOnly size={20} totalStars={10} />
-              <span className="font-semibold text-lg">{currentItem.rating.toFixed(1)}</span>
-            </div>
-            <p className="mb-2 line-clamp-3 text-white/80" style={{ textShadow: '1px 1px 4px rgba(0,0,0,0.7)' }}>
-              {currentItem.overview}
-            </p>
-            <div className="flex items-center gap-4 pt-2">
-               {currentItem.watchUrl && (
-                  <Button size="lg" asChild className="bg-primary text-primary-foreground h-12 px-8 text-lg hover:bg-primary/80">
-                    <a href={currentItem.watchUrl} target="_blank" rel="noopener noreferrer">
-                      <PlayIcon className="mr-2 h-6 w-6"/> Watch Now
-                    </a>
-                  </Button>
-               )}
-              <Button asChild size="lg" variant="outline" className="bg-white/10 border-white/20 hover:bg-white/20 h-12 px-8 text-lg">
-                 <TransitionLink href={`/movies/${currentItem.id}`}>
-                    More Info
-                 </TransitionLink>
+      {/* Cinematic Overlays (Vignette + Side Gradient Overlay for readability) */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent z-10" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#060606] via-transparent to-black/30 z-10" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,rgba(0,0,0,0.6)_100%)] pointer-events-none z-10" />
+
+      {/* Hero Content Panel */}
+      <div className="relative z-20 p-6 md:p-16 lg:p-20 w-full flex flex-col md:flex-row md:items-end justify-between gap-8">
+        <div className="w-full md:w-3/4 lg:w-3/5 space-y-4 md:space-y-6 text-left">
+          
+          {/* Genres & Tag Line */}
+          <motion.div 
+            {...animVariants(0.2, 10)}
+            className="flex flex-wrap gap-2 items-center"
+          >
+            <span className="px-3 py-1 text-[10px] md:text-xs font-bold tracking-widest uppercase rounded-full bg-primary text-white shadow-[0_2px_10px_rgba(139,0,0,0.3)]">
+              FEATURED {currentItem.type === 'series' ? 'TV SERIES' : 'MOVIE'}
+            </span>
+            {currentItem.genres && currentItem.genres.slice(0, 3).map((genre) => (
+              <span 
+                key={genre}
+                className="px-3 py-1 text-[10px] md:text-xs font-semibold tracking-wider rounded-full border border-white/10 bg-white/5 backdrop-blur-md text-white/80"
+              >
+                {genre}
+              </span>
+            ))}
+          </motion.div>
+
+          {/* Featured Title */}
+          <motion.h1 
+            {...animVariants(0.3, 20)}
+            className="text-4xl sm:text-6xl md:text-7xl font-bold font-headline tracking-wider uppercase leading-none drop-shadow-xl text-white break-words"
+            style={{ textShadow: '0 4px 20px rgba(0,0,0,0.8)' }}
+          >
+            {currentItem.title}
+          </motion.h1>
+
+          {/* Rating */}
+          <motion.div 
+            {...animVariants(0.4, 10)}
+            className="flex items-center space-x-3 bg-black/35 backdrop-blur-sm px-4 py-1.5 rounded-full border border-white/5 w-fit"
+          >
+            <StarRating initialRating={currentItem.rating} readOnly size={16} totalStars={10} />
+            <span className="font-bold text-sm tracking-wide text-white">{currentItem.rating.toFixed(1)}/10</span>
+          </motion.div>
+
+          {/* Description */}
+          <motion.p 
+            {...animVariants(0.5, 15)}
+            className="text-white/80 text-sm md:text-base leading-relaxed line-clamp-3 md:line-clamp-4 max-w-2xl drop-shadow-md font-body font-normal"
+            style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}
+          >
+            {currentItem.overview || "No overview available for this title."}
+          </motion.p>
+
+          {/* Call to Action Buttons */}
+          <motion.div 
+            {...animVariants(0.6, 15)}
+            className="flex flex-wrap gap-4 pt-3"
+          >
+            {currentItem.watchUrl ? (
+              <Button 
+                size="lg" 
+                asChild 
+                className="bg-primary hover:bg-[#A40000] text-white h-12 md:h-14 px-8 rounded-full text-sm font-semibold tracking-widest uppercase transition-all duration-300 shadow-[0_5px_20px_rgba(139,0,0,0.45)] hover:shadow-[0_5px_25px_rgba(139,0,0,0.65)] hover:-translate-y-0.5"
+              >
+                <a href={currentItem.watchUrl} target="_blank" rel="noopener noreferrer" className="flex items-center">
+                  <Play className="mr-2.5 h-4 w-4 fill-white" /> Watch Now
+                </a>
               </Button>
-            </div>
+            ) : (
+              <Button 
+                size="lg" 
+                asChild 
+                className="bg-primary hover:bg-[#A40000] text-white h-12 md:h-14 px-8 rounded-full text-sm font-semibold tracking-widest uppercase transition-all duration-300 shadow-[0_5px_20px_rgba(139,0,0,0.45)] hover:shadow-[0_5px_25px_rgba(139,0,0,0.65)] hover:-translate-y-0.5"
+              >
+                <TransitionLink href={`/movies/${currentItem.id}`}>
+                  <Play className="mr-2.5 h-4 w-4 fill-white" /> Watch Now
+                </TransitionLink>
+              </Button>
+            )}
+
+            {currentItem.trailerUrl ? (
+              <Button 
+                asChild 
+                size="lg" 
+                className="bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md text-white h-12 md:h-14 px-8 rounded-full text-sm font-semibold tracking-widest uppercase transition-all duration-300 hover:-translate-y-0.5"
+              >
+                <a href={currentItem.trailerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center">
+                  <Film className="mr-2.5 h-4 w-4" /> Watch Trailer
+                </a>
+              </Button>
+            ) : (
+              <Button 
+                asChild 
+                size="lg" 
+                className="bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md text-white h-12 md:h-14 px-8 rounded-full text-sm font-semibold tracking-widest uppercase transition-all duration-300 hover:-translate-y-0.5"
+              >
+                <TransitionLink href={`/movies/${currentItem.id}`}>
+                  <Info className="mr-2.5 h-4 w-4" /> More Info
+                </TransitionLink>
+              </Button>
+            )}
+          </motion.div>
         </div>
 
-        {/* Carousel Dots */}
+        {/* Carousel Indicators / Slider dots */}
         {items.length > 1 && (
-            <div className="absolute bottom-6 right-6 md:static flex flex-col items-center gap-2.5">
+          <motion.div 
+            {...(isMobile ? { initial: { opacity: 1 }, animate: { opacity: 1 } } : { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { delay: 0.8 } })}
+            className="flex md:flex-col items-center justify-center gap-3 bg-black/40 border border-white/5 backdrop-blur-md p-3.5 rounded-full self-center md:self-end"
+          >
             {items.map((_, index) => (
-                <button
+              <button
                 key={index}
                 onClick={() => handleSlideChange(index)}
                 className={cn(
-                    "h-2 w-2 rounded-full transition-all duration-300",
-                    currentIndex === index ? 'bg-primary scale-150' : 'bg-white/50 hover:bg-white'
+                  "h-2 rounded-full transition-all duration-300",
+                  currentIndex === index 
+                    ? 'w-6 bg-primary shadow-[0_0_8px_rgba(139,0,0,0.8)]' 
+                    : 'w-2 bg-white/40 hover:bg-white/70'
                 )}
                 aria-label={`Go to slide ${index + 1}`}
-                />
+              />
             ))}
-            </div>
+          </motion.div>
         )}
       </div>
     </div>

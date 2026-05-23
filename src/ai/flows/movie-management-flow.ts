@@ -44,6 +44,16 @@ export type UpdateMovieInput = UpdateMovieInputType;
 export type UpdateMovieOutput = UpdateMovieOutputType;
 
 
+// Memory cache variables for getMovies flow to optimize database latency
+let moviesCache: MovieOutput[] | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 15000; // 15 seconds
+
+function invalidateMoviesCache() {
+  moviesCache = null;
+  cacheTimestamp = 0;
+}
+
 // Add Movie Flow
 export async function addMovie(input: MovieCreateInput): Promise<z.infer<typeof AddMovieOutputSchema>> {
   return addMovieFlow(input);
@@ -74,6 +84,7 @@ const addMovieFlow = ai.defineFlow(
       const result = await moviesCollection.insertOne(newMovieDocument);
 
       if (result.insertedId) {
+        invalidateMoviesCache(); // Invalidate cache
         return { success: true, message: 'Movie added successfully!', movieId: result.insertedId.toString() };
       }
       return { success: false, message: 'Failed to add movie due to a database error.' };
@@ -98,6 +109,11 @@ const getMoviesFlow = ai.defineFlow(
   },
   async () => {
     try {
+      const now = Date.now();
+      if (moviesCache && (now - cacheTimestamp < CACHE_TTL)) {
+        return moviesCache;
+      }
+
       const { db } = await connectToDatabase();
       const moviesCollection = db.collection('movies');
       
@@ -129,6 +145,8 @@ const getMoviesFlow = ai.defineFlow(
         };
       });
       
+      moviesCache = moviesForOutput;
+      cacheTimestamp = now;
       return moviesForOutput;
 
     } catch (error: any) {
@@ -253,6 +271,7 @@ const updateMovieFlow = ai.defineFlow(
                     rating: typeof updatedMovieDoc.rating === 'number' ? updatedMovieDoc.rating : 0,
                     episodes: Array.isArray(updatedMovieDoc.episodes) ? updatedMovieDoc.episodes.map((ep: any) => ({ title: ep.title, downloadUrl: ep.downloadUrl, watchUrl: ep.watchUrl })) : undefined,
                 };
+                invalidateMoviesCache(); // Invalidate cache on update
                 return { success: true, message: 'Movie updated successfully.', movie: updatedMovie };
             }
             return { success: false, message: 'Movie not found or failed to update.' };
@@ -287,6 +306,7 @@ const deleteMovieFlow = ai.defineFlow(
       const result = await moviesCollection.deleteOne({ _id: new ObjectId(movieId) });
 
       if (result.deletedCount === 1) {
+        invalidateMoviesCache(); // Invalidate cache on delete
         return { success: true, message: 'Movie deleted successfully.' };
       }
       return { success: false, message: 'Movie not found or already deleted.' };

@@ -19,7 +19,7 @@ export default {
     extend: {
       fontFamily: {
         body: ['var(--font-inter)', 'sans-serif'],
-        headline: ['var(--font-space-grotesk)', 'sans-serif'],
+        headline: ['var(--font-bebas-neue)', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {

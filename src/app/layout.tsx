@@ -9,7 +9,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import GoogleAnalytics from '@/components/GoogleAnalytics';
 import Script from 'next/script';
-import { Inter, Space_Grotesk } from 'next/font/google';
+import { Inter, Bebas_Neue } from 'next/font/google';
 import { LoadingProvider } from '@/context/LoadingContext';
 import PageLoader from '@/components/PageLoader';
 import { NavigationEvents } from '@/components/NavigationEvents';
@@ -23,11 +23,11 @@ const inter = Inter({
   variable: '--font-inter',
 });
 
-const spaceGrotesk = Space_Grotesk({
+const bebasNeue = Bebas_Neue({
   subsets: ['latin'],
-  weight: ['400', '700'],
+  weight: ['400'],
   display: 'swap',
-  variable: '--font-space-grotesk',
+  variable: '--font-bebas-neue',
 });
 
 // `export const metadata: Metadata = { ... }` is for Server Components only.
@@ -46,13 +46,13 @@ export default function RootLayout({
           <meta name="description" content="Discover, rate, and review movies on Movie Pirates." />
           <meta name="google-site-verification" content="google76fa96448a07af65.html" />
         <Script
-          async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1842234499258946"
           crossOrigin="anonymous"
+          strategy="lazyOnload"
         />
         </head>
       
-      <body className={`${inter.variable} ${spaceGrotesk.variable} font-body antialiased bg-background text-foreground/80`}>
+      <body className={`${inter.variable} ${bebasNeue.variable} font-body antialiased bg-background text-foreground/80 grain-overlay`}>
         <LoadingProvider>
           <ThemeProvider
             attribute="class"
@@ -62,7 +62,7 @@ export default function RootLayout({
           >
             <div className="flex flex-col min-h-screen">
               <Header />
-              <main className="flex-1 w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+              <main className="flex-1 w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 md:pt-28 pb-28 md:pb-8">
                 {children}
               </main>
               <Footer />

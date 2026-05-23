@@ -1,9 +1,11 @@
 
 import type { NextConfig } from 'next';
+import path from 'path';
 
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
+  outputFileTracingRoot: path.join(__dirname),
   typescript: {
     ignoreBuildErrors: false,
   },
@@ -94,7 +96,7 @@ const nextConfig: NextConfig = {
       '@aws-sdk/credential-providers'
     );
 
-    // Disable minification to avoid HookWebpackError from next's internal plugins
+    // Disable Webpack minification to avoid HookWebpackError from next's internal plugins
     config.optimization = { ...config.optimization, minimize: false };
 
     if (!isServer) {
