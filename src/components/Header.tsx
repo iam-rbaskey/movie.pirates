@@ -13,6 +13,7 @@ import {
   LogOut, 
   Home, 
   Film, 
+  Tv,
   Bookmark, 
   X, 
   Sparkles,
@@ -148,6 +149,7 @@ export default function Header() {
   const bottomNavItems = [
     { icon: Home, label: 'Home', href: '/' },
     { icon: Film, label: 'Movies', href: '/movies' },
+    { icon: Tv, label: 'Series', href: '/series' },
     { icon: Search, label: 'Search', onClick: () => setIsMobileSearchOpen(true) },
     { icon: User, label: 'Profile', href: '/dashboard' },
     { 
@@ -185,8 +187,8 @@ export default function Header() {
                     className={cn(
                       "relative px-4 py-2 text-xs lg:text-sm font-semibold tracking-wider uppercase transition-all duration-300 rounded-full",
                       active 
-                        ? "text-white bg-primary/20 border border-primary/30" 
-                        : "text-foreground/70 hover:text-white hover:bg-white/5"
+                        ? "text-primary dark:text-white bg-primary/10 dark:bg-primary/25 border border-primary/20 dark:border-primary/30" 
+                        : "text-foreground/70 hover:text-foreground dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
                     )}
                   >
                     {link.label}
@@ -202,8 +204,8 @@ export default function Header() {
                   className={cn(
                     "px-4 py-2 text-xs lg:text-sm font-semibold tracking-wider uppercase transition-all duration-300 rounded-full",
                     isActiveLink('/admin')
-                      ? "text-white bg-primary/20 border border-primary/30"
-                      : "text-foreground/70 hover:text-white hover:bg-white/5"
+                      ? "text-primary dark:text-white bg-primary/10 dark:bg-primary/25 border border-primary/20 dark:border-primary/30"
+                      : "text-foreground/70 hover:text-foreground dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
                   )}
                 >
                   Admin
@@ -234,32 +236,32 @@ export default function Header() {
                   <div className="flex items-center cursor-pointer">
                     <Avatar className="h-9 w-9 border-2 border-primary/40 hover:border-primary transition-colors p-0.5 bg-background">
                       <AvatarImage src={userAvatarUrl ?? undefined} alt={userName || 'User Avatar'} />
-                      <AvatarFallback className="bg-primary/25 text-white font-headline text-sm">
+                      <AvatarFallback className="bg-primary/10 dark:bg-primary/25 text-primary dark:text-white font-headline text-sm">
                         {userName ? userName.charAt(0).toUpperCase() : 'U'}
                       </AvatarFallback>
                     </Avatar>
                   </div>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 glassmorphism border-white/10 rounded-2xl p-2 mt-2">
+                <DropdownMenuContent align="end" className="w-56 glassmorphism border-border rounded-2xl p-2 mt-2">
                   <DropdownMenuLabel className="font-normal px-3 py-2">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-semibold leading-none text-white">{userName}</p>
+                      <p className="text-sm font-semibold leading-none text-foreground">{userName}</p>
                       <p className="text-xs leading-none text-muted-foreground">{userRole === 'admin' ? 'Administrator' : 'Premium Member'}</p>
                     </div>
                   </DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-white/10" />
+                  <DropdownMenuSeparator className="bg-border" />
                   {userRole === 'admin' && (
-                    <DropdownMenuItem onClick={() => router.push('/admin')} className="rounded-xl hover:bg-white/5 cursor-pointer text-white focus:bg-white/10">
+                    <DropdownMenuItem onClick={() => router.push('/admin')} className="rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-foreground focus:bg-accent/10 focus:text-accent-foreground">
                       <LayoutDashboard className="mr-2 h-4 w-4 text-primary" />
                       <span>Admin Panel</span>
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem onClick={() => router.push('/dashboard')} className="rounded-xl hover:bg-white/5 cursor-pointer text-white focus:bg-white/10">
+                  <DropdownMenuItem onClick={() => router.push('/dashboard')} className="rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-foreground focus:bg-accent/10 focus:text-accent-foreground">
                     <User className="mr-2 h-4 w-4 text-primary" />
                     <span>My Profile</span>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuItem onClick={handleLogout} className="rounded-xl hover:bg-red-500/10 focus:bg-red-500/20 text-red-400 focus:text-red-400 cursor-pointer">
+                  <DropdownMenuSeparator className="bg-border" />
+                  <DropdownMenuItem onClick={handleLogout} className="rounded-xl hover:bg-red-500/10 focus:bg-red-500/20 text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 cursor-pointer">
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                   </DropdownMenuItem>

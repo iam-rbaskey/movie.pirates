@@ -1,15 +1,14 @@
-
 import TransitionLink from '@/components/TransitionLink';
 import { Logo } from './icons/Logo';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
 import { Facebook, Twitter, Instagram } from 'lucide-react';
 
 export default function Footer() {
   return (
-    <footer className="bg-card text-card-foreground border-t border-primary/20 mt-16">
+    <footer className="bg-card text-card-foreground border-t border-primary/20 mt-8 md:mt-16">
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 py-12">
+        
+        {/* Desktop Footer (Hidden on mobile) */}
+        <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-8 py-12">
           {/* About Section */}
           <div className="col-span-2 lg:col-span-1 space-y-4">
             <Logo className="h-9 w-[155px]" />
@@ -63,9 +62,26 @@ export default function Footer() {
                 <li><TransitionLink href="#" className="text-muted-foreground hover:text-primary transition-colors">support@movie.love</TransitionLink></li>
             </ul>
           </div>
-
         </div>
-        <div className="border-t border-border py-6 text-center text-xs text-muted-foreground pb-28 md:pb-6">
+
+        {/* Mobile Compact Header (Shown only on mobile) */}
+        <div className="flex md:hidden flex-col items-center justify-center pt-6 pb-4 space-y-3">
+          <Logo className="h-6 w-[103px]" />
+          <div className="flex space-x-6">
+            <TransitionLink href="#" aria-label="Facebook">
+              <Facebook className="h-4.5 w-4.5 text-muted-foreground hover:text-primary transition-colors" />
+            </TransitionLink>
+            <TransitionLink href="#" aria-label="Twitter">
+              <Twitter className="h-4.5 w-4.5 text-muted-foreground hover:text-primary transition-colors" />
+            </TransitionLink>
+            <TransitionLink href="#" aria-label="Instagram">
+              <Instagram className="h-4.5 w-4.5 text-muted-foreground hover:text-primary transition-colors" />
+            </TransitionLink>
+          </div>
+        </div>
+
+        {/* Bottom copyright statement */}
+        <div className="border-t border-border/30 md:border-t py-4 md:py-6 text-center text-[10px] md:text-xs text-muted-foreground pb-28 md:pb-6">
           <p>&copy; {new Date().getFullYear()} Movie Pirates. All rights reserved. | Made with ❤️ by RBaskey</p>
         </div>
       </div>

@@ -32,19 +32,19 @@ export default async function LandingPage() {
 
   return (
     <div className="space-y-12 py-8">
-      {/* Luxury Glassmorphic Welcome Banner with Sneak Peek Wall Background (Reduced Height) */}
-      <div className="relative overflow-hidden rounded-[32px] border border-white/10 dark:border-white/5 glassmorphism-card p-6 sm:p-8 md:p-10 min-h-[250px] md:min-h-[300px] flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl">
+      {/* Luxury Cinematic Welcome Banner with Sneak Peek Wall Background (Reduced Height) */}
+      <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#0B0B0B] text-white p-6 sm:p-8 md:p-10 min-h-[250px] md:min-h-[300px] flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl">
         
         {/* Left Side: Content Text */}
         <div className="relative z-10 max-w-xl text-left space-y-3.5">
           <div className="flex items-center space-x-2 bg-primary/10 border border-primary/20 px-3 py-1 rounded-full w-fit">
             <Sparkles className="h-3.5 w-3.5 text-primary animate-pulse" />
-            <span className="text-[10px] font-bold tracking-widest uppercase text-white">THE ULTIMATE STREAMING EXPERIENCE</span>
+            <span className="text-[10px] font-bold tracking-widest uppercase text-white/95">THE ULTIMATE STREAMING EXPERIENCE</span>
           </div>
           <h1 className="text-3xl sm:text-5xl font-bold font-headline tracking-wider uppercase leading-none text-white">
             WELCOME TO <span className="text-primary drop-shadow-[0_2px_10px_rgba(139,0,0,0.5)]">MOVIE PIRATES</span>
           </h1>
-          <p className="text-muted-foreground text-xs sm:text-sm max-w-md font-body leading-relaxed">
+          <p className="text-white/70 text-xs sm:text-sm max-w-md font-body leading-relaxed">
             Discover cinematic masterclasses, premium web series, and exclusive collections. Dive into a seamless, high-end visual storytelling universe.
           </p>
           <div className="pt-1">
@@ -59,9 +59,9 @@ export default async function LandingPage() {
         {/* Sneak Peek of the Movie Wall (Tilted, Faded Grid in Background) */}
         <div className="absolute right-0 top-0 bottom-0 w-full md:w-1/2 overflow-hidden pointer-events-none select-none z-0 opacity-20 dark:opacity-15">
           {/* Gradient Masks to smoothly blend the grid into the theme card */}
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-transparent to-transparent z-10 w-full h-full" />
-          <div className="absolute inset-0 bg-gradient-to-b from-background via-transparent to-background z-10 w-full h-full" />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background z-10 w-full h-full" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0B0B0B] via-transparent to-transparent z-10 w-full h-full" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0B0B0B] via-transparent to-[#0B0B0B] z-10 w-full h-full" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0B0B0B] via-transparent to-[#0B0B0B] z-10 w-full h-full" />
 
           {/* Tilted Collage Grid */}
           <div className="grid grid-cols-4 gap-2.5 rotate-[15deg] scale-105 translate-x-14 -translate-y-8 skew-y-2">

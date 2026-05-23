@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { motion, useMotionValue } from 'framer-motion';
+import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { type MovieOutput } from '@/ai/flows/movie-management-flow';
 import { Card } from '@/components/ui/card';
+import { ChevronLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface MovieWallProps {
     movies: MovieOutput[];
@@ -45,8 +47,33 @@ export default function MovieWall({ movies }: MovieWallProps) {
     const wallWidth = columns * (CARD_WIDTH + GAP);
     const wallHeight = Math.ceil(movies.length / columns) * (CARD_HEIGHT + GAP);
 
-    // Initial position to center the wall using CSS logic (50% left/top - 50% width/height)
-    // We use x and y for movement, starting offset by half width/height to center on the 50% mark
+    const getDragConstraints = () => {
+        if (typeof window === 'undefined' || windowSize.width === 0) {
+            return { left: 0, right: 0, top: 0, bottom: 0 };
+        }
+        const W = windowSize.width;
+        const H = windowSize.height;
+
+        let left = 0, right = 0;
+        if (wallWidth <= W) {
+            left = (W - wallWidth) / 2;
+            right = (W - wallWidth) / 2;
+        } else {
+            left = W - wallWidth;
+            right = 0;
+        }
+
+        let top = 0, bottom = 0;
+        if (wallHeight <= H) {
+            top = (H - wallHeight) / 2;
+            bottom = (H - wallHeight) / 2;
+        } else {
+            top = H - wallHeight;
+            bottom = 0;
+        }
+
+        return { left, right, top, bottom };
+    };
 
     const getSanitizedUrl = (movie: MovieOutput) => {
         const url = movie.posterUrl;
@@ -58,24 +85,35 @@ export default function MovieWall({ movies }: MovieWallProps) {
 
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-background cursor-grab active:cursor-grabbing">
+            {/* Mobile Back Button (Visible only on mobile) */}
+            <div className="fixed top-4 left-4 z-50 md:hidden">
+                <Link href="/">
+                    <Button
+                        size="icon"
+                        className="h-10 w-10 rounded-full bg-card/85 border border-border backdrop-blur-md text-foreground hover:bg-muted shadow-lg flex items-center justify-center animate-in fade-in duration-200"
+                        aria-label="Go back"
+                    >
+                        <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                </Link>
+            </div>
+
             <motion.div
+                key={`${windowSize.width}-${windowSize.height}`}
                 ref={containerRef}
                 drag
+                dragConstraints={getDragConstraints()}
+                dragElastic={0.05}
                 dragMomentum={true}
-                className="absolute flex flex-wrap content-start left-1/2 top-1/2"
+                className="absolute flex flex-wrap content-start left-0 top-0"
                 style={{
                     width: wallWidth,
                     height: wallHeight,
-                    x: -wallWidth / 2,
-                    y: -wallHeight / 2,
                 }}
-            // Remove constraints to allow infinite-like dragging feels
-            // dragConstraints={{
-            //   left: -wallWidth + windowSize.width,
-            //   right: 0,
-            //   top: -wallHeight + windowSize.height,
-            //   bottom: 0,
-            // }}
+                initial={{
+                    x: (windowSize.width - wallWidth) / 2,
+                    y: (windowSize.height - wallHeight) / 2
+                }}
             >
                 {movies.map((movie) => (
                     <motion.div
@@ -116,7 +154,7 @@ export default function MovieWall({ movies }: MovieWallProps) {
                 ))}
             </motion.div>
 
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-background/80 backdrop-blur-sm px-6 py-3 rounded-full shadow-xl pointer-events-none z-50 border">
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-background/80 backdrop-blur-sm px-6 py-3 rounded-full shadow-xl pointer-events-none z-50 border hidden md:block">
                 <p className="text-sm font-medium">Drag to explore • Click to view</p>
             </div>
         </div>

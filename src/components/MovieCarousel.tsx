@@ -61,7 +61,7 @@ export default function MovieCarousel({ title, movies, href }: MovieCarouselProp
     <section className="relative py-6 group/carousel">
       {/* Title & View All Link */}
       <div className="flex items-center justify-between mb-4 px-1">
-        <h2 className="text-xl sm:text-2xl font-bold font-headline tracking-widest uppercase text-white flex items-center gap-2">
+        <h2 className="text-xl sm:text-2xl font-bold font-headline tracking-widest uppercase text-foreground flex items-center gap-2">
           <span className="w-1.5 h-6 bg-primary rounded-full block" />
           {title}
         </h2>
