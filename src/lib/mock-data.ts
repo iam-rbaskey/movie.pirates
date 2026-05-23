@@ -1,0 +1,104 @@
+import type { Movie, Review, UserProfile } from '@/types';
+
+// Note: mockMovies will be phased out as dynamic data is implemented across public pages.
+// For now, it keeps public pages functional.
+export const mockMovies: Movie[] = [
+  {
+    id: '1',
+    title: 'Inception',
+    posterUrl: 'https://placehold.co/300x450.png',
+    backdropUrl: 'https://placehold.co/1280x720.png',
+    dataAiHint: 'sci-fi thriller',
+    type: 'movie',
+    genres: ['Sci-Fi', 'Action', 'Thriller'],
+    releaseDate: '2010-07-16',
+    rating: 8.8,
+    overview: 'A thief who steals information by entering people\'s dreams gets a chance to have his criminal history erased as payment for a task considered to be impossible: "inception", the implantation of another person\'s idea into a target\'s subconscious.',
+    cast: [
+      { name: 'Leonardo DiCaprio', character: 'Cobb', profileUrl: 'https://placehold.co/100x100.png', dataAiHint: 'male actor' },
+      { name: 'Joseph Gordon-Levitt', character: 'Arthur', profileUrl: 'https://placehold.co/100x100.png', dataAiHint: 'male actor' },
+      { name: 'Elliot Page', character: 'Ariadne', profileUrl: 'https://placehold.co/100x100.png', dataAiHint: 'female actor' },
+    ],
+    director: 'Christopher Nolan',
+    trailerUrl: 'https://www.youtube.com/embed/YoHD9XEInc0',
+    watchUrl: '#',
+  },
+  {
+    id: '2',
+    title: 'The Matrix',
+    posterUrl: 'https://placehold.co/300x450.png',
+    backdropUrl: 'https://placehold.co/1280x720.png',
+    dataAiHint: 'cyberpunk action',
+    type: 'movie',
+    genres: ['Action', 'Sci-Fi'],
+    releaseDate: '1999-03-31',
+    rating: 8.7,
+    overview: 'A computer hacker learns from mysterious rebels about the true nature of his reality and his role in the war against its controllers.',
+    cast: [
+      { name: 'Keanu Reeves', character: 'Neo', profileUrl: 'https://placehold.co/100x100.png', dataAiHint: 'male actor' },
+      { name: 'Laurence Fishburne', character: 'Morpheus', profileUrl: 'https://placehold.co/100x100.png', dataAiHint: 'male actor' },
+      { name: 'Carrie-Anne Moss', character: 'Trinity', profileUrl: 'https://placehold.co/100x100.png', dataAiHint: 'female actor' },
+    ],
+    director: 'Lana Wachowski, Lilly Wachowski',
+    trailerUrl: 'https://www.youtube.com/embed/vKQi3bBA1y8',
+    watchUrl: '#',
+  },
+  {
+    id: '3',
+    title: 'Interstellar',
+    posterUrl: 'https://placehold.co/300x450.png',
+    backdropUrl: 'https://placehold.co/1280x720.png',
+    dataAiHint: 'space epic',
+    type: 'movie',
+    genres: ['Adventure', 'Drama', 'Sci-Fi'],
+    releaseDate: '2014-11-07',
+    rating: 8.6,
+    overview: 'A team of explorers travel through a wormhole in space in an attempt to ensure humanity\'s survival.',
+    cast: [
+      { name: 'Matthew McConaughey', character: 'Cooper', profileUrl: 'https://placehold.co/100x100.png', dataAiHint: 'male actor' },
+      { name: 'Anne Hathaway', character: 'Brand', profileUrl: 'https://placehold.co/100x100.png', dataAiHint: 'female actor' },
+      { name: 'Jessica Chastain', character: 'Murph', profileUrl: 'https://placehold.co/100x100.png', dataAiHint: 'female actor' },
+    ],
+    director: 'Christopher Nolan',
+    trailerUrl: 'https://www.youtube.com/embed/zSWdZVtXT7E',
+    watchUrl: '#',
+  },
+   {
+    id: '4',
+    title: 'Parasite',
+    posterUrl: 'https://placehold.co/300x450.png',
+    backdropUrl: 'https://placehold.co/1280x720.png',
+    dataAiHint: 'social thriller',
+    type: 'movie',
+    genres: ['Comedy', 'Drama', 'Thriller'],
+    releaseDate: '2019-10-11',
+    rating: 8.5,
+    overview: 'Greed and class discrimination threaten the newly formed symbiotic relationship between the wealthy Park family and the destitute Kim clan.',
+    cast: [
+      { name: 'Song Kang-ho', character: 'Kim Ki-taek', profileUrl: 'https://placehold.co/100x100.png', dataAiHint: 'korean actor' },
+      { name: 'Lee Sun-kyun', character: 'Park Dong-ik', profileUrl: 'https://placehold.co/100x100.png', dataAiHint: 'korean actor' },
+    ],
+    director: 'Bong Joon Ho',
+    trailerUrl: 'https://www.youtube.com/embed/5xH0HfJHsaY',
+    watchUrl: '#',
+  },
+];
+
+export const mockReviews: Review[] = [
+  { id: 'r1', movieId: '1', userId: 'u1', userName: 'MovieBuff23', rating: 10, comment: 'Absolutely mind-bending! A masterpiece of sci-fi.', createdAt: '2023-08-15T10:00:00Z', userAvatarUrl: 'https://placehold.co/50x50.png', dataAiHintUser: 'person avatar' },
+  { id: 'r2', movieId: '1', userId: 'u2', userName: 'CinemaFan', rating: 8, comment: 'Great concept and visuals, but a bit complex to follow at times.', createdAt: '2023-08-16T14:30:00Z', userAvatarUrl: 'https://placehold.co/50x50.png', dataAiHintUser: 'user icon' },
+  { id: 'r3', movieId: '2', userId: 'u3', userName: 'SciFiGeek', rating: 9, comment: 'A classic that redefined the genre. Still holds up!', createdAt: '2023-09-01T12:00:00Z', userAvatarUrl: 'https://placehold.co/50x50.png', dataAiHintUser: 'avatar generic' },
+];
+
+export const mockUserProfile: UserProfile = {
+  id: 'u1',
+  name: 'Alice Wonderland',
+  email: 'alice@example.com',
+  avatarUrl: 'https://placehold.co/150x150.png',
+  dataAiHint: 'female portrait',
+  watchlist: [mockMovies[0], mockMovies[2]],
+  reviews: mockReviews.filter(r => r.userId === 'u1'),
+  ratingHistory: [{movieId: '1', rating: 10}, {movieId: '3', rating: 8}],
+  role: 'user',
+  lastSeen: new Date().toISOString(),
+};
