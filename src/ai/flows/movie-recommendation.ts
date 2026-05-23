@@ -30,7 +30,7 @@ const RecommendMoviesInputSchema = z.object({
 });
 export type RecommendMoviesInput = z.infer<typeof RecommendMoviesInputSchema>;
 
-// Internal schema for what the LLM prompt is expected to return
+// Internal schema for recommendation output
 const LLMPromptOutputSchema = z.object({
   recommendations: z.array(z.object({
     title: z.string().describe("The title of the recommended movie."),
@@ -54,7 +54,7 @@ export async function recommendMovies(input: RecommendMoviesInput): Promise<Reco
 const recommendMoviesPrompt = ai.definePrompt({
   name: 'recommendMoviesPrompt',
   input: { schema: RecommendMoviesInputSchema },
-  output: { schema: LLMPromptOutputSchema }, // LLM returns titles and reasons
+  output: { schema: LLMPromptOutputSchema }, // Returns titles and reasons
   prompt: `You are a movie recommendation expert. Based on the user's viewing history and ratings (on a scale of 1-10), you will recommend movie titles they might enjoy and provide a brief reason for each recommendation.
 
   The user's viewing history is as follows:
@@ -81,9 +81,30 @@ const recommendMoviesFlow = ai.defineFlow(
     outputSchema: RecommendMoviesOutputSchema,
   },
   async (input) => {
-    const { output: llmOutput } = await recommendMoviesPrompt(input);
+    let recommendations: Array<{ title: string; reason: string }> = [];
 
-    if (!llmOutput || !llmOutput.recommendations) {
+    try {
+      const { output: llmOutput } = await recommendMoviesPrompt(input);
+      if (llmOutput && llmOutput.recommendations) {
+        recommendations = llmOutput.recommendations;
+      }
+    } catch (e) {
+      console.warn("Recommendation query failed. Falling back to DB-based selection.", e);
+      try {
+        const { db } = await connectToDatabase();
+        const moviesCollection = db.collection('movies');
+        // Fetch up to 5 random/popular movies from database
+        const fallbackDocs = await moviesCollection.aggregate([{ $sample: { size: 5 } }]).toArray();
+        recommendations = fallbackDocs.map(doc => ({
+          title: doc.title,
+          reason: `Catalog favorite popular recommendation.`
+        }));
+      } catch (dbErr) {
+        console.error("DB fallback also failed:", dbErr);
+      }
+    }
+
+    if (recommendations.length === 0) {
       return { movieRecommendations: [] };
     }
 
@@ -91,7 +112,7 @@ const recommendMoviesFlow = ai.defineFlow(
     const moviesCollection = db.collection('movies');
     const finalRecommendations: { movie: MovieOutput; reason: string }[] = [];
 
-    for (const rec of llmOutput.recommendations) {
+    for (const rec of recommendations) {
       if (finalRecommendations.length >= 5) break; // Limit to 5 final recommendations
 
       try {

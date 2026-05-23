@@ -99,7 +99,7 @@ const getUsersFlow = ai.defineFlow(
         };
       });
 
-      // Genkit will validate this usersForAdmin array against GetUsersOutputSchema
+      // The array is validated against GetUsersOutputSchema
       return usersForAdmin;
 
     } catch (error: any) {

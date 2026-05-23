@@ -153,9 +153,11 @@ export default function Header() {
     { icon: Search, label: 'Search', onClick: () => setIsMobileSearchOpen(true) },
     { icon: User, label: 'Profile', href: '/dashboard' },
     { 
-      icon: currentTheme === 'dark' ? Sun : Moon, 
+      icon: isClient ? (currentTheme === 'dark' ? Sun : Moon) : Sun, 
       label: 'Theme', 
-      onClick: () => setTheme(currentTheme === 'dark' ? 'light' : 'dark') 
+      onClick: () => {
+        if (isClient) setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+      }
     }
   ];
 

@@ -13,7 +13,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2 } from 'lucide-react';
-import { registerUser } from '@/ai/flows/user-auth-flow'; // Import the Genkit flow
+import { registerUser } from '@/ai/flows/user-auth-flow';
 
 export default function RegisterPage() {
   const router = useRouter();

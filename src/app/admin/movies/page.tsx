@@ -33,6 +33,7 @@ export default function AdminMoviesPage() {
   const [editingMovie, setEditingMovie] = useState<MovieOutput | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+
   const form = useForm<MovieCreateInput>({
     resolver: zodResolver(MovieCreateInputSchema),
     defaultValues: {

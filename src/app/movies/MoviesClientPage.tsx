@@ -2,11 +2,9 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import MovieCard from '@/components/MovieCard';
-import { Loader2, Film, Search as SearchIcon } from 'lucide-react'; 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from '@/components/ui/button';
+import { Film, Search as SearchIcon } from 'lucide-react'; 
 import { Input } from '@/components/ui/input';
-import type { MovieOutput } from '@/ai/flows/movie-management-flow';
+import { type MovieOutput } from '@/ai/flows/movie-management-flow';
 import { useSearchParams } from 'next/navigation';
 
 export default function MoviesClientPage({ movies }: { movies: MovieOutput[] }) {
@@ -20,13 +18,15 @@ export default function MoviesClientPage({ movies }: { movies: MovieOutput[] }) 
     if (query !== null && query !== searchTerm) {
       setSearchTerm(query);
     }
-  }, [searchParams, searchTerm]);
+  }, [searchParams]);
 
-  const filteredMovies = useMemo(() => movies.filter(movie =>
-    movie.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    movie.genres.some(genre => genre.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    movie.director.toLowerCase().includes(searchTerm.toLowerCase())
-  ), [movies, searchTerm]);
+  const filteredMovies = useMemo(() => {
+    return movies.filter(movie =>
+      movie.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      movie.genres.some(genre => genre.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      movie.director.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [movies, searchTerm]);
 
   return (
     <div className="space-y-8 animate-fade-in py-8">
@@ -37,16 +37,18 @@ export default function MoviesClientPage({ movies }: { movies: MovieOutput[] }) 
         <p className="text-muted-foreground text-md sm:text-lg max-w-2xl mx-auto">
           Browse our extensive collection of films. Use the search below to find movies by title, genre, or director.
         </p>
-        <div className="relative max-w-lg mx-auto">
-          <Input
-            type="search"
-            placeholder="Search movies..."
-            className="h-12 text-md pl-12 pr-4 rounded-full shadow-sm bg-input"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            aria-label="Search all movies"
-          />
-          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+        <div className="relative max-w-lg mx-auto flex items-center">
+          <div className="relative w-full">
+            <Input
+              type="search"
+              placeholder="Search movies..."
+              className="h-12 text-md pl-12 pr-4 rounded-full shadow-sm bg-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Search all movies"
+            />
+            <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          </div>
         </div>
       </header>
 

@@ -3,7 +3,6 @@
  * This file does NOT use 'use server' and is safe for defining complex synchronous Zod schemas.
  */
 import { z } from 'zod';
-import { ObjectId } from 'mongodb';
 
 const EpisodeSchema = z.object({
   title: z.string().min(1, "Episode title is required"),
@@ -42,13 +41,6 @@ export const UpdateMovieInputSchema = MovieCreateInputSchema.partial().extend({
 });
 export type UpdateMovieInput = z.infer<typeof UpdateMovieInputSchema>;
 
-
-// Schema for movie data coming from DB (includes _id)
-export const MovieDBSchema = MovieCreateInputSchema.extend({
-  _id: z.instanceof(ObjectId),
-  createdAt: z.date().optional(), // Optional: if you track creation time
-  updatedAt: z.date().optional(), // Optional: if you track update time
-});
 
 // Schema for movie data returned by getMovies flow (maps _id to id)
 export const MovieOutputSchema = MovieCreateInputSchema.extend({
