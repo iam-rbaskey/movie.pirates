@@ -1,28 +1,12 @@
 'use server';
-/**
- * @fileOverview User authentication flows (registration and login) with MongoDB and JWT.
- *
- * - registerUser - Handles new user registration.
- * - loginUser - Handles user login.
- * - UserRegisterInput - Input schema for user registration.
- * - UserRegisterOutput - Output schema for user registration.
- * - UserLoginInput - Input schema for user login.
- * - UserLoginOutput - Output schema for user login.
- */
 
-import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { type UserProfile } from '@/types'; // Import UserProfile to type the collection
-import { ObjectId } from 'mongodb';
+import { type UserProfile } from '@/types';
 
-// IMPORTANT: Replace this with a strong, unique secret for your application!
 const JWT_SECRET = "210eb87e922b9199cdfd62d166e553c025fbc57509a61e3a257384973fbf8286";
-
-// Token secret check removed for production readiness
-
 
 // Schemas for Registration
 const UserRegisterInputSchema = z.object({
@@ -58,112 +42,84 @@ const UserLoginOutputSchema = z.object({
 });
 export type UserLoginOutput = z.infer<typeof UserLoginOutputSchema>;
 
-
-// Register User Flow
 export async function registerUser(input: UserRegisterInput): Promise<UserRegisterOutput> {
-  return registerUserFlow(input);
+  try {
+    const { db } = await connectToDatabase();
+    const usersCollection = db.collection<Omit<UserProfile, 'id' | '_id'>>('users');
+
+    const existingUser = await usersCollection.findOne({ email: input.email });
+    if (existingUser) {
+      return { success: false, message: 'User already exists with this email.' };
+    }
+
+    const hashedPassword = await bcryptjs.hash(input.password, 10);
+
+    const newUser: Omit<UserProfile, 'id' | '_id'> & { createdAt: Date; password: string } = {
+      name: input.name,
+      email: input.email,
+      password: hashedPassword as string,
+      createdAt: new Date(),
+      watchlist: [],
+      reviews: [],
+      ratingHistory: [],
+      role: 'user',
+      avatarUrl: `https://placehold.co/150x150.png?text=${input.name.charAt(0)}`,
+      dataAiHint: 'placeholder avatar',
+    };
+
+    const result = await usersCollection.insertOne(newUser as any);
+
+    if (result.insertedId) {
+      return { success: true, message: 'User registered successfully!', userId: result.insertedId.toString() };
+    }
+    return { success: false, message: 'Failed to register user due to a database error.' };
+
+  } catch (error: any) {
+    console.error('Registration error:', error);
+    return { success: false, message: error.message || 'An unexpected error occurred during registration.' };
+  }
 }
 
-const registerUserFlow = ai.defineFlow(
-  {
-    name: 'registerUserFlow',
-    inputSchema: UserRegisterInputSchema,
-    outputSchema: UserRegisterOutputSchema,
-  },
-  async (input) => {
-    try {
-      const { db } = await connectToDatabase();
-      const usersCollection = db.collection<Omit<UserProfile, 'id' | '_id'>>('users');
-
-      const existingUser = await usersCollection.findOne({ email: input.email });
-      if (existingUser) {
-        return { success: false, message: 'User already exists with this email.' };
-      }
-
-      const hashedPassword = await bcryptjs.hash(input.password, 10);
-
-      const newUser: Omit<UserProfile, 'id' | '_id'> & { createdAt: Date; password: string } = {
-        name: input.name,
-        email: input.email,
-        password: hashedPassword as string,
-        createdAt: new Date(),
-        watchlist: [],
-        reviews: [],
-        ratingHistory: [],
-        // Default role is 'user'. To create an admin, register a user normally,
-        // then manually update their 'role' field to 'admin' in the MongoDB 'users' collection.
-        role: 'user',
-        avatarUrl: `https://placehold.co/150x150.png?text=${input.name.charAt(0)}`,
-        dataAiHint: 'placeholder avatar',
-      };
-
-      const result = await usersCollection.insertOne(newUser as any);
-
-      if (result.insertedId) {
-        return { success: true, message: 'User registered successfully!', userId: result.insertedId.toString() };
-      }
-      return { success: false, message: 'Failed to register user due to a database error.' };
-
-    } catch (error: any) {
-      console.error('Registration error:', error);
-      return { success: false, message: error.message || 'An unexpected error occurred during registration.' };
-    }
-  }
-);
-
-
-// Login User Flow
 export async function loginUser(input: UserLoginInput): Promise<UserLoginOutput> {
-  return loginUserFlow(input);
-}
+  try {
+    const { db } = await connectToDatabase();
+    const usersCollection = db.collection('users');
 
-const loginUserFlow = ai.defineFlow(
-  {
-    name: 'loginUserFlow',
-    inputSchema: UserLoginInputSchema,
-    outputSchema: UserLoginOutputSchema,
-  },
-  async (input) => {
-    try {
-      const { db } = await connectToDatabase();
-      const usersCollection = db.collection('users'); // Specify UserProfile type with _id
-
-      const user = await usersCollection.findOne({ email: input.email });
-      if (!user) {
-        return { success: false, message: 'User not found with this email.' };
-      }
-
-      if (typeof user.password !== 'string') {
-        return { success: false, message: 'User account is not properly configured (missing password hash).' };
-      }
-
-      const isPasswordMatch = await bcryptjs.compare(input.password, user.password);
-      if (!isPasswordMatch) {
-        return { success: false, message: 'Invalid password.' };
-      }
-
-      const tokenPayload = {
-        userId: user._id.toString(),
-        email: user.email,
-        name: user.name,
-        role: user.role as 'user' | 'admin', // Cast role from DB
-      };
-      const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '1h' });
-
-      return {
-        success: true,
-        message: 'Login successful!',
-        userId: user._id.toString(),
-        name: user.name,
-        email: user.email,
-        role: user.role as 'user' | 'admin',
-        token: token,
-        avatarUrl: user.avatarUrl,
-      };
-
-    } catch (error: any) {
-      console.error('Login error:', error);
-      return { success: false, message: error.message || 'An unexpected error occurred during login.' };
+    const user = await usersCollection.findOne({ email: input.email });
+    if (!user) {
+      return { success: false, message: 'User not found with this email.' };
     }
+
+    if (typeof user.password !== 'string') {
+      return { success: false, message: 'User account is not properly configured (missing password hash).' };
+    }
+
+    const isPasswordMatch = await bcryptjs.compare(input.password, user.password);
+    if (!isPasswordMatch) {
+      return { success: false, message: 'Invalid password.' };
+    }
+
+    const tokenPayload = {
+      userId: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      role: user.role as 'user' | 'admin',
+    };
+    const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '1h' });
+
+    return {
+      success: true,
+      message: 'Login successful!',
+      userId: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      role: user.role as 'user' | 'admin',
+      token: token,
+      avatarUrl: user.avatarUrl,
+    };
+
+  } catch (error: any) {
+    console.error('Login error:', error);
+    return { success: false, message: error.message || 'An unexpected error occurred during login.' };
   }
-);
+}
