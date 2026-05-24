@@ -23,7 +23,8 @@ import {
   Menu, 
   X, 
   ChevronLeft,
-  Loader2
+  Loader2,
+  Search
 } from 'lucide-react';
 
 interface NavLinkItem {
@@ -104,8 +105,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const navItems: NavLinkItem[] = [
     { label: 'Dashboard', href: '/admin', icon: LayoutDashboard, isActivePath: pathname === '/admin', isDisabled: false },
     { label: 'Contents', href: '/admin/movies', icon: Film, isActivePath: pathname === '/admin/movies' || pathname.startsWith('/admin/movies/'), isDisabled: false },
+    { label: 'Media Assets', href: '/admin/assets', icon: Folder, isActivePath: pathname === '/admin/assets', isDisabled: false },
+    { label: 'Analytics', href: '/admin/analytics', icon: BarChart3, isActivePath: pathname === '/admin/analytics', isDisabled: false },
+    { label: 'Search Analytics', href: '/admin/search-analytics', icon: Search, isActivePath: pathname === '/admin/search-analytics', isDisabled: false },
     { label: 'Users', href: '/admin/users', icon: Users, isActivePath: pathname === '/admin/users' || pathname.startsWith('/admin/users/'), isDisabled: false },
-    { label: 'Comments', href: '/admin/reviews', icon: MessageSquare, isActivePath: pathname === '/admin/reviews' || pathname.startsWith('/admin/reviews/'), isDisabled: false },
+    { label: 'Roles & Permissions', href: '/admin/roles', icon: Contact, isActivePath: pathname === '/admin/roles', isDisabled: false },
+    { label: 'Settings', href: '/admin/settings', icon: Settings, isActivePath: pathname === '/admin/settings', isDisabled: false },
   ];
 
   return (

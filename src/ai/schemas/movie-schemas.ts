@@ -32,6 +32,9 @@ export const MovieCreateInputSchema = z.object({
   dataAiHint: z.string().optional(),
   rating: z.number().min(0).max(10).default(0),
   episodes: z.array(EpisodeSchema).optional(),
+  status: z.enum(['draft', 'published', 'scheduled', 'archived']).default('published'),
+  isFeatured: z.boolean().default(false),
+  regions: z.array(z.string()).default(['Global']),
 });
 export type MovieCreateInput = z.infer<typeof MovieCreateInputSchema>;
 

@@ -104,6 +104,9 @@ export async function getMovies(): Promise<MovieOutput[]> {
         dataAiHint: doc.dataAiHint,
         rating: typeof doc.rating === 'number' ? doc.rating : 0,
         episodes: Array.isArray(doc.episodes) ? doc.episodes.map((ep: any) => ({ title: ep.title, downloadUrl: ep.downloadUrl, watchUrl: ep.watchUrl })) : undefined,
+        status: doc.status || (doc.watchUrl ? 'published' : 'draft'),
+        isFeatured: doc.isFeatured ?? false,
+        regions: doc.regions || ['Global'],
       };
     });
     
@@ -155,6 +158,9 @@ export async function getMovieById(input: GetMovieByIdInput): Promise<MovieOutpu
       dataAiHint: doc.dataAiHint,
       rating: typeof doc.rating === 'number' ? doc.rating : 0,
       episodes: Array.isArray(doc.episodes) ? doc.episodes.map((ep: any) => ({ title: ep.title, downloadUrl: ep.downloadUrl, watchUrl: ep.watchUrl })) : undefined,
+      status: doc.status || (doc.watchUrl ? 'published' : 'draft'),
+      isFeatured: doc.isFeatured ?? false,
+      regions: doc.regions || ['Global'],
     };
     
     return movieForOutput;
@@ -208,6 +214,9 @@ export async function updateMovie(input: UpdateMovieInput): Promise<UpdateMovieO
               dataAiHint: updatedMovieDoc.dataAiHint,
               rating: typeof updatedMovieDoc.rating === 'number' ? updatedMovieDoc.rating : 0,
               episodes: Array.isArray(updatedMovieDoc.episodes) ? updatedMovieDoc.episodes.map((ep: any) => ({ title: ep.title, downloadUrl: ep.downloadUrl, watchUrl: ep.watchUrl })) : undefined,
+              status: updatedMovieDoc.status || (updatedMovieDoc.watchUrl ? 'published' : 'draft'),
+              isFeatured: updatedMovieDoc.isFeatured ?? false,
+              regions: updatedMovieDoc.regions || ['Global'],
           };
           invalidateMoviesCache();
           return { success: true, message: 'Movie updated successfully.', movie: updatedMovie };

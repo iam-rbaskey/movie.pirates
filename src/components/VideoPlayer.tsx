@@ -18,14 +18,17 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { logStreamActivity } from '@/ai/flows/stream-activity-flow';
 
 interface VideoPlayerProps {
   watchUrl: string;
   title: string;
   onClose?: () => void;
+  movieId?: string;
+  movieType?: 'movie' | 'series';
 }
 
-export default function VideoPlayer({ watchUrl, title, onClose }: VideoPlayerProps) {
+export default function VideoPlayer({ watchUrl, title, onClose, movieId, movieType }: VideoPlayerProps) {
   const { toast } = useToast();
   const [streamUrl, setStreamUrl] = useState('');
   const [fileId, setFileId] = useState('');
@@ -50,6 +53,48 @@ export default function VideoPlayer({ watchUrl, title, onClose }: VideoPlayerPro
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const playPromiseRef = useRef<Promise<void> | null>(null);
+
+  const sendTelemetry = async (action: 'play' | 'buffer' | 'fail' | 'heartbeat') => {
+    if (!movieId) return;
+    try {
+      const visitorId = localStorage.getItem('visitorId') || 'anonymous-visitor';
+      const userId = localStorage.getItem('userId');
+      
+      let device: 'desktop' | 'mobile' | 'tablet' = 'desktop';
+      if (typeof window !== 'undefined') {
+        const ua = window.navigator.userAgent;
+        if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
+          device = "tablet";
+        } else if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) {
+          device = "mobile";
+        }
+      }
+
+      await logStreamActivity({
+        movieId,
+        movieTitle: title,
+        movieType: movieType || 'movie',
+        action,
+        device,
+        visitorId,
+        userId,
+      });
+    } catch (e) {
+      console.error("Telemetry failed to log:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (!isPlaying || !movieId) return;
+    
+    sendTelemetry('heartbeat');
+
+    const interval = setInterval(() => {
+      sendTelemetry('heartbeat');
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [isPlaying, movieId]);
 
   // Helper to extract File ID from full Google Drive URL
   const extractFileId = (input: string): string => {
@@ -84,10 +129,12 @@ export default function VideoPlayer({ watchUrl, title, onClose }: VideoPlayerPro
           const errMsg = await res.text();
           setVideoError(errMsg || `Failed to connect to stream proxy (HTTP ${res.status}).`);
           setIsBuffering(false);
+          sendTelemetry('fail');
         }
       })
       .catch((err) => {
         console.error("Stream verification failed:", err);
+        sendTelemetry('fail');
       });
     } else {
       // Fallback to direct url if it's not a gdrive link
@@ -143,6 +190,7 @@ export default function VideoPlayer({ watchUrl, title, onClose }: VideoPlayerPro
       const playPromise = videoRef.current.play();
       playPromiseRef.current = playPromise;
       setIsPlaying(true);
+      sendTelemetry('play');
       playPromise.catch(err => {
         console.log("Play request interrupted or failed:", err);
         setIsPlaying(false);
@@ -192,6 +240,7 @@ export default function VideoPlayer({ watchUrl, title, onClose }: VideoPlayerPro
       playPromiseRef.current = playPromise;
       playPromise.then(() => {
         setIsPlaying(true);
+        sendTelemetry('play');
       }).catch(err => {
         console.log("Autoplay blocked or failed:", err);
         setIsPlaying(false);
@@ -383,7 +432,10 @@ export default function VideoPlayer({ watchUrl, title, onClose }: VideoPlayerPro
               className="w-full h-full object-contain max-h-[85vh]"
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
-              onWaiting={() => setIsBuffering(true)}
+              onWaiting={() => {
+                setIsBuffering(true);
+                sendTelemetry('buffer');
+              }}
               onPlaying={() => setIsBuffering(false)}
               onCanPlay={() => setIsBuffering(false)}
               onEnded={() => setIsPlaying(false)}
@@ -392,6 +444,7 @@ export default function VideoPlayer({ watchUrl, title, onClose }: VideoPlayerPro
                 setVideoError("Playback failed. This is typically caused by an invalid or non-public Google Drive File ID, or a format not natively supported by your browser (e.g. MKV). Please ensure the file is shared as 'Anyone with the link can view' and is a standard web-compatible format like MP4.");
                 setIsBuffering(false);
                 setIsPlaying(false);
+                sendTelemetry('fail');
               }}
             />
           )}

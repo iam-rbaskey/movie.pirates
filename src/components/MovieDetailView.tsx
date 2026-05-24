@@ -96,6 +96,8 @@ export default function MovieDetailView({ movie, reviews }: MovieDetailViewProps
             <VideoPlayer 
               watchUrl={activeVideoUrl}
               title={activeVideoTitle || movie.title}
+              movieId={movie.id}
+              movieType={movie.type}
               onClose={() => {
                 setActiveVideoUrl(null);
                 setActiveVideoTitle(null);

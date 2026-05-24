@@ -14,6 +14,8 @@ const UserForAdminOutputSchema = z.object({
   role: z.enum(['user', 'admin']).describe("User's role in the system."),
   createdAt: z.string().datetime().describe("Date and time when the user registered (ISO 8601 format)."),
   dataAiHint: z.string().optional().nullable().describe("AI hint for the avatar image placeholder."),
+  customRole: z.string().optional().nullable().describe("User's extended enterprise role."),
+  lastIp: z.string().optional().nullable().describe("Last logged IP address of the user."),
 });
 export type UserForAdminOutput = z.infer<typeof UserForAdminOutputSchema>;
 
@@ -27,6 +29,7 @@ const UpdateUserByAdminInputSchema = z.object({
   email: z.string().email("Invalid email address").optional(),
   role: z.enum(['user', 'admin']).optional(),
   avatarUrl: z.string().url("Invalid URL for avatar").optional().nullable(),
+  customRole: z.string().optional().nullable(),
 });
 export type UpdateUserByAdminInput = z.infer<typeof UpdateUserByAdminInputSchema>;
 
@@ -69,6 +72,8 @@ export async function getUsers(): Promise<GetUsersOutput> {
         role: doc.role || 'user',
         createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : new Date(0).toISOString(),
         dataAiHint: doc.dataAiHint || null,
+        customRole: doc.customRole || (doc.role === 'admin' ? 'Super Admin' : 'Uploader'),
+        lastIp: doc.lastIp || null,
       };
     });
 
@@ -94,6 +99,7 @@ export async function updateUserByAdmin(input: UpdateUserByAdminInput): Promise<
     if (updateData.email) updatePayload.email = updateData.email;
     if (updateData.role) updatePayload.role = updateData.role;
     if (updateData.avatarUrl !== undefined) updatePayload.avatarUrl = updateData.avatarUrl ?? undefined;
+    if (updateData.customRole !== undefined) (updatePayload as any).customRole = updateData.customRole;
 
     if (Object.keys(updatePayload).length === 0) {
       return { success: false, message: 'No update data provided.' };
@@ -115,6 +121,8 @@ export async function updateUserByAdmin(input: UpdateUserByAdminInput): Promise<
         role: updatedUserDoc.role || 'user',
         createdAt: (updatedUserDoc as any).createdAt ? new Date((updatedUserDoc as any).createdAt).toISOString() : new Date(0).toISOString(),
         dataAiHint: updatedUserDoc.dataAiHint || null,
+        customRole: (updatedUserDoc as any).customRole || (updatedUserDoc.role === 'admin' ? 'Super Admin' : 'Uploader'),
+        lastIp: (updatedUserDoc as any).lastIp || null,
       };
       return { success: true, message: 'User updated successfully.', user: updatedUser };
     }

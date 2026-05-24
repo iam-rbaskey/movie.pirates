@@ -174,6 +174,7 @@ export default function AdminUsersPage() {
                     <TableHead>Name</TableHead>
                     <TableHead className="hidden md:table-cell">Email</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead className="hidden md:table-cell">Last IP</TableHead>
                     <TableHead className="hidden lg:table-cell">Joined</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -193,6 +194,9 @@ export default function AdminUsersPage() {
                         <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
                           {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell font-mono text-xs text-[#A1A1A1]">
+                        {user.lastIp || '—'}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         {user.createdAt ? format(new Date(user.createdAt), 'MMM d, yyyy') : 'N/A'}

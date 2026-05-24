@@ -17,6 +17,7 @@ export const UserProfileOutputSchema = z.object({
   role: z.enum(['user', 'admin']).default('user'),
   dataAiHint: z.string().optional().nullable(),
   lastSeen: z.string().datetime().optional().nullable(),
+  lastIp: z.string().optional().nullable(),
 });
 export type UserProfileOutput = z.infer<typeof UserProfileOutputSchema>;
 

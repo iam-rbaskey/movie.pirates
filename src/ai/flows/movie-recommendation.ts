@@ -86,8 +86,13 @@ export async function recommendMovies(input: RecommendMoviesInput): Promise<Reco
         })) : [],
         director: doc.director,
         trailerUrl: doc.trailerUrl === null ? undefined : doc.trailerUrl,
+        watchUrl: doc.watchUrl === null ? undefined : doc.watchUrl,
         dataAiHint: doc.dataAiHint,
         rating: typeof doc.rating === 'number' ? doc.rating : 0,
+        status: doc.status || (doc.watchUrl ? 'published' : 'draft'),
+        isFeatured: doc.isFeatured ?? false,
+        regions: doc.regions || ['Global'],
+        episodes: Array.isArray(doc.episodes) ? doc.episodes.map((ep: any) => ({ title: ep.title, downloadUrl: ep.downloadUrl, watchUrl: ep.watchUrl })) : undefined,
       };
 
       const parsedMovie = MovieOutputSchema.safeParse(movieData);

@@ -22,6 +22,9 @@ export const mockMovies: Movie[] = [
     director: 'Christopher Nolan',
     trailerUrl: 'https://www.youtube.com/embed/YoHD9XEInc0',
     watchUrl: '#',
+    status: 'published',
+    isFeatured: false,
+    regions: ['Global'],
   },
   {
     id: '2',
@@ -42,6 +45,9 @@ export const mockMovies: Movie[] = [
     director: 'Lana Wachowski, Lilly Wachowski',
     trailerUrl: 'https://www.youtube.com/embed/vKQi3bBA1y8',
     watchUrl: '#',
+    status: 'published',
+    isFeatured: false,
+    regions: ['Global'],
   },
   {
     id: '3',
@@ -62,8 +68,11 @@ export const mockMovies: Movie[] = [
     director: 'Christopher Nolan',
     trailerUrl: 'https://www.youtube.com/embed/zSWdZVtXT7E',
     watchUrl: '#',
+    status: 'published',
+    isFeatured: false,
+    regions: ['Global'],
   },
-   {
+  {
     id: '4',
     title: 'Parasite',
     posterUrl: 'https://placehold.co/300x450.png',
@@ -81,6 +90,9 @@ export const mockMovies: Movie[] = [
     director: 'Bong Joon Ho',
     trailerUrl: 'https://www.youtube.com/embed/5xH0HfJHsaY',
     watchUrl: '#',
+    status: 'published',
+    isFeatured: false,
+    regions: ['Global'],
   },
 ];
 
