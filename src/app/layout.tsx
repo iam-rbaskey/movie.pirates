@@ -15,6 +15,7 @@ import PageLoader from '@/components/PageLoader';
 import { NavigationEvents } from '@/components/NavigationEvents';
 import { Suspense } from 'react';
 import ConditionalTelegramPopup from '@/components/ConditionalTelegramPopup';
+import { usePathname } from 'next/navigation';
 
 
 const inter = Inter({
@@ -38,6 +39,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const pathname = usePathname();
+  const isAdminPath = pathname?.startsWith('/admin');
   
   return (
     <html lang="en" suppressHydrationWarning>
@@ -61,11 +64,11 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <div className="flex flex-col min-h-screen">
-              <Header />
-              <main className="flex-1 w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-28 pb-28 md:pb-8">
+              {!isAdminPath && <Header />}
+              <main className={isAdminPath ? "flex-1 w-full" : "flex-1 w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-28 pb-28 md:pb-8"}>
                 {children}
               </main>
-              <Footer />
+              {!isAdminPath && <Footer />}
             </div>
             <Toaster />
           </ThemeProvider>

@@ -9,6 +9,8 @@ const DashboardCountsSchema = z.object({
   totalMovies: z.number().describe("Total number of movies in the system."),
   totalReviews: z.number().describe("Total number of reviews submitted."),
   totalVisitors: z.number().describe("Total number of unique anonymous visitors."),
+  moviesCount: z.number().optional().describe("Number of movies in the system."),
+  seriesCount: z.number().optional().describe("Number of TV series in the system."),
 });
 
 const RecentActivityItemSchema = z.object({
@@ -50,6 +52,15 @@ export async function getAdminDashboardData(): Promise<AdminDashboardDataOutput>
     const totalUsers = await usersCollection.countDocuments();
     const totalMovies = await moviesCollection.countDocuments();
     const totalVisitors = await visitorsCollection.countDocuments();
+    
+    const moviesCount = await moviesCollection.countDocuments({
+      $or: [
+        { type: 'movie' },
+        { type: { $exists: false } },
+        { type: null }
+      ]
+    });
+    const seriesCount = await moviesCollection.countDocuments({ type: 'series' });
     
     let totalReviews = 0;
     try {
@@ -178,7 +189,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardDataOutput>
     }
 
     return {
-      counts: { totalUsers, totalMovies, totalReviews, totalVisitors },
+      counts: { totalUsers, totalMovies, totalReviews, totalVisitors, moviesCount, seriesCount },
       recentActivity,
       monthlySignups,
       dailyVisitors,
@@ -203,7 +214,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardDataOutput>
     }
 
     return {
-      counts: { totalUsers: 0, totalMovies: 0, totalReviews: 0, totalVisitors: 0 },
+      counts: { totalUsers: 0, totalMovies: 0, totalReviews: 0, totalVisitors: 0, moviesCount: 0, seriesCount: 0 },
       recentActivity: [],
       monthlySignups: fallbackMonths,
       dailyVisitors: fallbackDays,
