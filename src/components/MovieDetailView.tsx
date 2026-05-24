@@ -14,6 +14,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useToast } from '@/hooks/use-toast';
 import { addReview } from '@/ai/flows/review-flow';
 import { cn } from '@/lib/utils';
+import VideoPlayer from '@/components/VideoPlayer';
 
 type MovieDetailViewProps = {
   movie: MovieOutput;
@@ -38,6 +39,10 @@ export default function MovieDetailView({ movie, reviews }: MovieDetailViewProps
   const [userId, setUserId] = React.useState<string | null>(null);
   const [userName, setUserName] = React.useState<string | null>(null);
   const [userAvatarUrl, setUserAvatarUrl] = React.useState<string | null>(null);
+
+  // States to control active native streaming video player
+  const [activeVideoUrl, setActiveVideoUrl] = React.useState<string | null>(null);
+  const [activeVideoTitle, setActiveVideoTitle] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setUserId(localStorage.getItem('userId'));
@@ -86,89 +91,109 @@ export default function MovieDetailView({ movie, reviews }: MovieDetailViewProps
     <div className="animate-fade-in py-8 md:py-12 space-y-12">
       {/* Movie Details Hero Banner */}
       <section className="relative rounded-[32px] overflow-hidden min-h-[55vh] md:min-h-[70vh] flex items-end text-white shadow-2xl border border-white/5 bg-black">
-        {backdropUrl && (
-          <Image
-            src={backdropUrl}
-            alt={`Backdrop for ${movie.title}`}
-            fill 
-            priority
-            className="object-cover object-top scale-105 filter brightness-75 contrast-105 select-none"
-            data-ai-hint={movie.dataAiHint || "movie scene"}
-          />
-        )}
-        {/* Gradients */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#060606] via-black/40 to-transparent z-10"></div>
-        <div className="absolute inset-y-0 left-0 w-full md:w-2/3 bg-gradient-to-r from-black/80 via-black/45 to-transparent z-10"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,rgba(0,0,0,0.6)_100%)] pointer-events-none z-10" />
-
-        <div className="relative z-20 p-6 sm:p-12 md:p-16 w-full flex flex-col md:flex-row md:items-end justify-between gap-8">
-          <div className="w-full md:w-2/3 space-y-4 md:space-y-6">
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="px-3 py-1 text-[10px] font-bold tracking-widest uppercase rounded-full bg-primary text-white">
-                {movie.type === 'series' ? 'TV Show' : 'Movie'}
-              </span>
-              {movie.genres && movie.genres.map((genre) => (
-                <span key={genre} className="px-3 py-1 text-[10px] font-semibold tracking-wider rounded-full border border-white/10 bg-white/5 backdrop-blur-md text-white/80">
-                  {genre}
-                </span>
-              ))}
-            </div>
-
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold font-headline leading-none uppercase tracking-wider text-white">
-              {movie.title}
-            </h1>
-
-            <div className="flex items-center space-x-3 bg-black/40 border border-white/5 backdrop-blur-sm px-4 py-1.5 rounded-full w-fit">
-              <StarRating initialRating={movie.rating} readOnly size={16} totalStars={10} />
-              <span className="text-sm font-bold text-white">{movie.rating.toFixed(1)}/10</span>
-            </div>
-
-            <p className="text-white/85 leading-relaxed max-w-2xl text-sm md:text-base font-body">
-              {movie.overview || "No overview description is available for this title."}
-            </p>
-
-            <div className="flex flex-wrap items-center gap-4 pt-2">
-              {movie.watchUrl && (
-                <Button asChild size="lg" className="bg-primary hover:bg-[#A40000] text-white h-12 md:h-14 px-8 rounded-full text-xs font-semibold tracking-widest uppercase transition-all duration-300 shadow-[0_4px_15px_rgba(139,0,0,0.4)] hover:-translate-y-0.5">
-                  <a href={movie.watchUrl} target="_blank" rel="noopener noreferrer" className="flex items-center">
-                    <Play className="mr-2 h-4 w-4 fill-white" /> Watch Now
-                  </a>
-                </Button>
-              )}
-              {movie.trailerUrl && (
-                <Button asChild size="lg" className="bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md text-white h-12 md:h-14 px-8 rounded-full text-xs font-semibold tracking-widest uppercase transition-all duration-300 hover:-translate-y-0.5">
-                  <a href={movie.trailerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center">
-                    <Download className="mr-2 h-4 w-4" /> Watch Trailer
-                  </a>
-                </Button>
-              )}
-            </div>
+        {activeVideoUrl ? (
+          <div className="absolute inset-0 w-full h-full z-30">
+            <VideoPlayer 
+              watchUrl={activeVideoUrl}
+              title={activeVideoTitle || movie.title}
+              onClose={() => {
+                setActiveVideoUrl(null);
+                setActiveVideoTitle(null);
+              }}
+            />
           </div>
+        ) : (
+          <>
+            {backdropUrl && (
+              <Image
+                src={backdropUrl}
+                alt={`Backdrop for ${movie.title}`}
+                fill 
+                priority
+                className="object-cover object-top scale-105 filter brightness-75 contrast-105 select-none"
+                data-ai-hint={movie.dataAiHint || "movie scene"}
+              />
+            )}
+            {/* Gradients */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#060606] via-black/40 to-transparent z-10"></div>
+            <div className="absolute inset-y-0 left-0 w-full md:w-2/3 bg-gradient-to-r from-black/80 via-black/45 to-transparent z-10"></div>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,rgba(0,0,0,0.6)_100%)] pointer-events-none z-10" />
 
-          {/* Quick Cast List Side Pane */}
-          {movie.cast && movie.cast.length > 0 && (
-            <div className="w-full md:w-72 flex-shrink-0 space-y-3">
-              <h4 className="text-xs font-bold text-muted-foreground tracking-widest uppercase px-1">Top Cast</h4>
-              {movie.cast.slice(0, 3).map((item, index) => (
-                <div key={index} className="flex items-center p-3 rounded-2xl border border-white/5 bg-black/40 backdrop-blur-md">
-                  <div className="relative h-10 w-10 mr-3 flex-shrink-0 rounded-full overflow-hidden border border-white/10">
-                    <Image
-                      src={item.profileUrl || 'https://placehold.co/100x100.png'}
-                      alt={item.name}
-                      fill
-                      className="object-cover"
-                      data-ai-hint={item.dataAiHint || "actor headshot"}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm text-white truncate">{item.name}</p>
-                    <p className="text-xs text-white/60 truncate">{item.character}</p>
-                  </div>
+            <div className="relative z-20 p-6 sm:p-12 md:p-16 w-full flex flex-col md:flex-row md:items-end justify-between gap-8">
+              <div className="w-full md:w-2/3 space-y-4 md:space-y-6">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <span className="px-3 py-1 text-[10px] font-bold tracking-widest uppercase rounded-full bg-primary text-white">
+                    {movie.type === 'series' ? 'TV Show' : 'Movie'}
+                  </span>
+                  {movie.genres && movie.genres.map((genre) => (
+                    <span key={genre} className="px-3 py-1 text-[10px] font-semibold tracking-wider rounded-full border border-white/10 bg-white/5 backdrop-blur-md text-white/80">
+                      {genre}
+                    </span>
+                  ))}
                 </div>
-              ))}
+
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold font-headline leading-none uppercase tracking-wider text-white">
+                  {movie.title}
+                </h1>
+
+                <div className="flex items-center space-x-3 bg-black/40 border border-white/5 backdrop-blur-sm px-4 py-1.5 rounded-full w-fit">
+                  <StarRating initialRating={movie.rating} readOnly size={16} totalStars={10} />
+                  <span className="text-sm font-bold text-white">{movie.rating.toFixed(1)}/10</span>
+                </div>
+
+                <p className="text-white/85 leading-relaxed max-w-2xl text-sm md:text-base font-body">
+                  {movie.overview || "No overview description is available for this title."}
+                </p>
+
+                <div className="flex flex-wrap items-center gap-4 pt-2">
+                  {movie.watchUrl && (
+                    <Button 
+                      onClick={() => {
+                        setActiveVideoUrl(movie.watchUrl ?? null);
+                        setActiveVideoTitle(movie.title);
+                      }}
+                      size="lg" 
+                      className="bg-primary hover:bg-[#A40000] text-white h-12 md:h-14 px-8 rounded-full text-xs font-semibold tracking-widest uppercase transition-all duration-300 shadow-[0_4px_15px_rgba(139,0,0,0.4)] hover:-translate-y-0.5 cursor-pointer"
+                    >
+                      <Play className="mr-2 h-4 w-4 fill-white" /> Watch Now
+                    </Button>
+                  )}
+                  {movie.trailerUrl && (
+                    <Button asChild size="lg" className="bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md text-white h-12 md:h-14 px-8 rounded-full text-xs font-semibold tracking-widest uppercase transition-all duration-300 hover:-translate-y-0.5">
+                      <a href={movie.trailerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center">
+                        <Download className="mr-2 h-4 w-4" /> Watch Trailer
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Cast List Side Pane */}
+              {movie.cast && movie.cast.length > 0 && (
+                <div className="w-full md:w-72 flex-shrink-0 space-y-3">
+                  <h4 className="text-xs font-bold text-muted-foreground tracking-widest uppercase px-1">Top Cast</h4>
+                  {movie.cast.slice(0, 3).map((item, index) => (
+                    <div key={index} className="flex items-center p-3 rounded-2xl border border-white/5 bg-black/40 backdrop-blur-md">
+                      <div className="relative h-10 w-10 mr-3 flex-shrink-0 rounded-full overflow-hidden border border-white/10">
+                        <Image
+                          src={item.profileUrl || 'https://placehold.co/100x100.png'}
+                          alt={item.name}
+                          fill
+                          className="object-cover"
+                          data-ai-hint={item.dataAiHint || "actor headshot"}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-white truncate">{item.name}</p>
+                        <p className="text-xs text-white/60 truncate">{item.character}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </section>
 
       {/* Episodes List (Web Series only) */}
@@ -190,10 +215,16 @@ export default function MovieDetailView({ movie, reviews }: MovieDetailViewProps
                     <AccordionContent className="pb-4 pt-2">
                       <div className="flex flex-wrap items-center gap-4">
                         {episode.watchUrl && (
-                          <Button asChild className="bg-primary hover:bg-[#A40000] text-white rounded-full text-xs font-semibold uppercase tracking-wider px-6">
-                            <a href={episode.watchUrl} target="_blank" rel="noopener noreferrer" className="flex items-center">
-                              <Play className="mr-2 h-4 w-4 fill-white" /> Watch Episode
-                            </a>
+                          <Button 
+                            onClick={() => {
+                              setActiveVideoUrl(episode.watchUrl ?? null);
+                              setActiveVideoTitle(`${movie.title} - Episode ${index + 1}: ${episode.title}`);
+                              // Scroll up to the hero player smoothly
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="bg-primary hover:bg-[#A40000] text-white rounded-full text-xs font-semibold uppercase tracking-wider px-6 cursor-pointer"
+                          >
+                            <Play className="mr-2 h-4 w-4 fill-white" /> Watch Episode
                           </Button>
                         )}
                         {episode.downloadUrl && (

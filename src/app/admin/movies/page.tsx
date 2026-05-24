@@ -192,6 +192,33 @@ export default function AdminMoviesPage() {
     return url;
   };
 
+  const isGDriveUrl = (url?: string) => {
+    return !!(url && (url.includes('drive.google.com') || url.includes('docs.google.com')));
+  };
+
+  const getGDriveStatusBadge = (movie: MovieOutput) => {
+    if (movie.type === 'movie') {
+      if (isGDriveUrl(movie.watchUrl)) {
+        return <Badge className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/25 hover:bg-emerald-500/15">Active GDrive</Badge>;
+      } else {
+        return <Badge className="bg-red-500/10 text-red-500 border border-red-500/25 hover:bg-red-500/15 font-semibold">Missing Link</Badge>;
+      }
+    } else {
+      const eps = movie.episodes || [];
+      if (eps.length === 0) {
+        return <Badge className="bg-red-500/10 text-red-500 border border-red-500/25 hover:bg-red-500/15 font-semibold">No Episodes</Badge>;
+      }
+      const withLink = eps.filter(ep => isGDriveUrl(ep.watchUrl)).length;
+      if (withLink === eps.length) {
+        return <Badge className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/25 hover:bg-emerald-500/15">All Active</Badge>;
+      } else if (withLink > 0) {
+        return <Badge className="bg-amber-500/10 text-amber-500 border border-amber-500/25 hover:bg-amber-500/15">Partial ({withLink}/{eps.length})</Badge>;
+      } else {
+        return <Badge className="bg-red-500/10 text-red-500 border border-red-500/25 hover:bg-red-500/15 font-semibold">Missing Link</Badge>;
+      }
+    }
+  };
+
   const filteredMovies = movies.filter(movie =>
     movie.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -448,6 +475,7 @@ export default function AdminMoviesPage() {
                     <TableHead className="w-[60px] sm:w-[80px]">Poster</TableHead>
                     <TableHead>Title</TableHead>
                     <TableHead className="hidden sm:table-cell">Type</TableHead>
+                    <TableHead className="hidden sm:table-cell">GDrive Status</TableHead>
                     <TableHead className="hidden sm:table-cell">Director</TableHead>
                     <TableHead className="hidden md:table-cell">Release Date</TableHead>
                     <TableHead className="hidden sm:table-cell">Rating</TableHead>
@@ -466,6 +494,9 @@ export default function AdminMoviesPage() {
                           <Badge variant={movie.type === 'series' ? 'secondary' : 'outline'}>
                             {movie.type.charAt(0).toUpperCase() + movie.type.slice(1)}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          {getGDriveStatusBadge(movie)}
                         </TableCell>
                         <TableCell className="hidden sm:table-cell whitespace-nowrap">{movie.director}</TableCell>
                         <TableCell className="hidden md:table-cell whitespace-nowrap">{movie.releaseDate ? new Date(movie.releaseDate).toLocaleDateString() : 'N/A'}</TableCell>
@@ -499,7 +530,7 @@ export default function AdminMoviesPage() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
+                      <TableCell colSpan={8} className="h-24 text-center">
                         No results found for "{searchTerm}".
                       </TableCell>
                     </TableRow>

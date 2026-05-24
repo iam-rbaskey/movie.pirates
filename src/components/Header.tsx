@@ -42,7 +42,6 @@ const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/movies', label: 'Movies' },
   { href: '/series', label: 'TV Shows' },
-  { href: '/stream-test', label: 'Phase 3 Test' },
   { href: '/explore', label: 'Collections' },
   { href: '/dashboard', label: 'My List' },
 ];
@@ -151,7 +150,7 @@ export default function Header() {
   const bottomNavItems = [
     { icon: Home, label: 'Home', href: '/' },
     { icon: Film, label: 'Movies', href: '/movies' },
-    { icon: Play, label: 'Test', href: '/stream-test' },
+    { icon: Tv, label: 'Series', href: '/series' },
     { icon: Search, label: 'Search', onClick: () => setIsMobileSearchOpen(true) },
     { icon: User, label: 'Profile', href: '/dashboard' }
   ];

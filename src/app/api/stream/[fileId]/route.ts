@@ -16,6 +16,7 @@ async function getGoogleDriveStreamUrl(fileId: string): Promise<string> {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
       redirect: 'manual',
+      cache: 'no-store',
     });
 
     const location = response.headers.get('location');
@@ -102,6 +103,7 @@ export async function GET(
     let streamResponse = await fetch(streamUrl, {
       method: 'GET',
       headers: fetchHeaders,
+      cache: 'no-store',
     });
 
     // Extract streaming-related headers
@@ -109,6 +111,27 @@ export async function GET(
     const responseHeaders = streamResponse.headers;
 
     const contentType = responseHeaders.get('content-type') || 'video/mp4';
+
+    if (contentType.includes('text/html')) {
+      const htmlText = await streamResponse.text();
+      if (htmlText.includes('Quota exceeded') || htmlText.includes('quota exceeded') || htmlText.includes('Sorry, you can\'t view or download this file')) {
+        return new NextResponse(
+          "Google Drive Quota Exceeded: Too many users have recently viewed or downloaded this file. Google Drive restricts high-traffic downloads. Please try again later, or download the movie directly.",
+          { status: 429 }
+        );
+      }
+      if (htmlText.includes('NotFound') || htmlText.includes('The page you requested was not found') || htmlText.includes('not found')) {
+        return new NextResponse(
+          "File not found on Google Drive. Please ensure the file ID is correct and is shared publicly.",
+          { status: 404 }
+        );
+      }
+      return new NextResponse(
+        "Google Drive access denied. Ensure the file has link sharing turned on (Anyone with the link can view).",
+        { status: 403 }
+      );
+    }
+
     const contentRange = responseHeaders.get('content-range');
     const contentLength = responseHeaders.get('content-length');
     const acceptRanges = responseHeaders.get('accept-ranges') || 'bytes';
