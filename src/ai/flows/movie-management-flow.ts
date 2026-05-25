@@ -81,7 +81,10 @@ export async function getMovies(): Promise<MovieOutput[]> {
     
     const moviesFromDB = await moviesCollection.find({}).sort({ releaseDate: -1 }).toArray();
 
-    const moviesForOutput: MovieOutput[] = moviesFromDB.map(movieDoc => {
+    // Filter out malformed movie documents (e.g. missing title field)
+    const validMoviesFromDB = moviesFromDB.filter(doc => doc && typeof doc.title === 'string' && doc.title.trim().length > 0);
+
+    const moviesForOutput: MovieOutput[] = validMoviesFromDB.map(movieDoc => {
       const doc = movieDoc as any; 
       return {
         id: doc._id.toString(),
