@@ -82,6 +82,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'serializd-tmdb-images.b-cdn.net',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
   webpack: (config, { isServer, webpack }) => { // `webpack` instance is available in options

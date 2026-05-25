@@ -14,16 +14,25 @@ const EpisodeSchema = z.object({
 // Only Title and Poster URL are strictly required.
 export const MovieCreateInputSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  posterUrl: z.string().url({ message: "A valid Poster URL is required" }),
+  posterUrl: z.string().refine(
+    val => val.startsWith('data:image/') || /^(https?:\/\/|\/\/)/.test(val),
+    { message: "A valid Poster URL or base64 image data is required" }
+  ),
   type: z.enum(['movie', 'series']).default('movie'),
-  backdropUrl: z.string().url({ message: "Backdrop URL must be a valid URL if provided" }).optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
+  backdropUrl: z.string().refine(
+    val => val === '' || val.startsWith('data:image/') || /^(https?:\/\/|\/\/)/.test(val),
+    { message: "Backdrop URL must be a valid URL or base64 image if provided" }
+  ).optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
   genres: z.array(z.string()).default([]),
   releaseDate: z.string().default(''),
   overview: z.string().default(''),
   cast: z.array(z.object({
     name: z.string().default(''),
     character: z.string().default(''),
-    profileUrl: z.string().url({ message: "Profile URL must be a valid URL if provided" }).optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
+    profileUrl: z.string().refine(
+      val => val === '' || val.startsWith('data:image/') || /^(https?:\/\/|\/\/)/.test(val),
+      { message: "Profile URL must be a valid URL or base64 image if provided" }
+    ).optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
     dataAiHint: z.string().optional(),
   })).default([]),
   director: z.string().default(''),

@@ -51,11 +51,17 @@ export default function HeroCarousel({ items }: { items: MovieOutput[] }) {
   const sanitizedSrc = useMemo(() => {
     if (!currentItem) return undefined;
     const url = currentItem.backdropUrl || currentItem.posterUrl;
-    if (!url || url.includes('/title/') || url.includes('/name/') || !url.startsWith('http')) {
+    if (!url || url.includes('/title/') || url.includes('/name/') || (!url.startsWith('http') && !url.startsWith('data:'))) {
       return `https://placehold.co/1200x800.png?text=${encodeURIComponent(currentItem.title)}`;
     }
     return url;
   }, [currentItem]);
+
+  const [imgSrc, setImgSrc] = useState<string | undefined>(sanitizedSrc);
+
+  useEffect(() => {
+    setImgSrc(sanitizedSrc);
+  }, [sanitizedSrc]);
 
   // Helper helper to bypass animations on mobile
   const animVariants = (delay: number, yOffset = 15) => {
@@ -78,7 +84,7 @@ export default function HeroCarousel({ items }: { items: MovieOutput[] }) {
       {/* Background Image Carousel with Ken Burns / Slow Zoom effect */}
       <div className="absolute inset-0 overflow-hidden select-none">
         <AnimatePresence mode="wait">
-          {sanitizedSrc && (
+          {imgSrc && (
             <motion.div
               key={`${currentItem.id}-${currentIndex}`}
               initial={isMobile ? { opacity: 1 } : { scale: 1.05, opacity: 0 }}
@@ -88,12 +94,16 @@ export default function HeroCarousel({ items }: { items: MovieOutput[] }) {
               className="absolute inset-0 w-full h-full"
             >
               <Image
-                src={sanitizedSrc}
+                src={imgSrc}
                 alt={`Backdrop for ${currentItem.title}`}
                 fill
                 priority
                 className="object-cover object-top filter brightness-95 contrast-105"
                 sizes="100vw"
+                referrerPolicy="no-referrer"
+                onError={() => {
+                  setImgSrc(`https://placehold.co/1200x800.png?text=${encodeURIComponent(currentItem.title)}`);
+                }}
                 data-ai-hint="hero backdrop"
               />
             </motion.div>

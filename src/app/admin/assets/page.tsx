@@ -27,6 +27,7 @@ export default function MediaAssetsPage() {
   const [movies, setMovies] = useState<MovieOutput[]>([]);
   const [assets, setAssets] = useState<AssetDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [brokenAssets, setBrokenAssets] = useState<Record<string, boolean>>({});
   
   // Tab selection: 'all' | 'posters' | 'banners' | 'trailers'
   const [activeTab, setActiveTab] = useState<'all' | 'posters' | 'banners' | 'trailers'>('all');
@@ -276,11 +277,15 @@ export default function MediaAssetsPage() {
                   </div>
                 ) : (
                   <Image 
-                    src={asset.url} 
+                    src={brokenAssets[asset.id] ? (asset.type === 'poster' ? `https://placehold.co/600x900.png?text=${encodeURIComponent(asset.movieTitle)}` : `https://placehold.co/1200x800.png?text=${encodeURIComponent(asset.movieTitle)}`) : asset.url} 
                     alt={asset.movieTitle} 
                     fill 
                     sizes="(max-width: 768px) 100vw, 25vw"
                     className="object-cover group-hover:scale-105 transition-transform duration-700"
+                    referrerPolicy="no-referrer"
+                    onError={() => {
+                      setBrokenAssets(prev => ({ ...prev, [asset.id]: true }));
+                    }}
                     unoptimized
                   />
                 )}

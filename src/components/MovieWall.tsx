@@ -16,6 +16,7 @@ interface MovieWallProps {
 export default function MovieWall({ movies }: MovieWallProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
+    const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
     // Handle window constraints (optional, but good for centering initially)
     useEffect(() => {
@@ -77,7 +78,7 @@ export default function MovieWall({ movies }: MovieWallProps) {
 
     const getSanitizedUrl = (movie: MovieOutput) => {
         const url = movie.posterUrl;
-        if (!url || url.includes('/title/') || url.includes('/name/') || !url.startsWith('http')) {
+        if (!url || url.includes('/title/') || url.includes('/name/') || (!url.startsWith('http') && !url.startsWith('data:'))) {
             return `https://placehold.co/600x900.png?text=${encodeURIComponent(movie.title)}`;
         }
         return url;
@@ -137,11 +138,15 @@ export default function MovieWall({ movies }: MovieWallProps) {
                                 }}
                             >
                                 <Image
-                                    src={getSanitizedUrl(movie)}
+                                    src={brokenImages[movie.id] ? `https://placehold.co/600x900.png?text=${encodeURIComponent(movie.title)}` : getSanitizedUrl(movie)}
                                     alt={movie.title}
                                     fill
                                     className="object-cover transition-transform duration-300 group-hover:scale-110"
                                     sizes="(max-width: 768px) 150px, 200px"
+                                    referrerPolicy="no-referrer"
+                                    onError={() => {
+                                        setBrokenImages(prev => ({ ...prev, [movie.id]: true }));
+                                    }}
                                     priority={false}
                                 />
                                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4 text-center">

@@ -16,11 +16,17 @@ type MovieCardProps = {
 const MovieCard = React.memo(function MovieCard({ movie, className }: MovieCardProps) {
   const imageUrl = React.useMemo(() => {
     const url = movie.posterUrl;
-    if (!url || url.includes('/title/') || url.includes('/name/') || !url.startsWith('http')) {
+    if (!url || url.includes('/title/') || url.includes('/name/') || (!url.startsWith('http') && !url.startsWith('data:'))) {
       return `https://placehold.co/600x900.png?text=${encodeURIComponent(movie.title)}`;
     }
     return url;
   }, [movie.posterUrl, movie.title]);
+
+  const [imgSrc, setImgSrc] = React.useState(imageUrl);
+
+  React.useEffect(() => {
+    setImgSrc(imageUrl);
+  }, [imageUrl]);
 
   const year = React.useMemo(() => {
     if (!movie.releaseDate) return null;
@@ -46,11 +52,15 @@ const MovieCard = React.memo(function MovieCard({ movie, className }: MovieCardP
         {/* Poster Wrapper with Zoom Effect */}
         <div className="aspect-[2/3] relative w-full overflow-hidden rounded-t-[24px]">
           <Image
-            src={imageUrl}
+            src={imgSrc}
             alt={`Poster for ${movie.title}`}
             fill
             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 16vw"
             className="rounded-t-[24px] object-cover transition-transform duration-700 ease-out md:group-hover:scale-110"
+            referrerPolicy="no-referrer"
+            onError={() => {
+              setImgSrc(`https://placehold.co/600x900.png?text=${encodeURIComponent(movie.title)}`);
+            }}
             data-ai-hint="movie poster"
           />
           {/* Subtle reflection overlay on hover */}

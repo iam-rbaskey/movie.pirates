@@ -301,11 +301,17 @@ function MoviePoster({ movie }: MoviePosterProps) {
 
   const imageUrl = useMemo(() => {
     const url = movie.posterUrl;
-    if (!url || url.includes('/title/') || url.includes('/name/') || !url.startsWith('http')) {
+    if (!url || url.includes('/title/') || url.includes('/name/') || (!url.startsWith('http') && !url.startsWith('data:'))) {
       return `https://placehold.co/600x900.png?text=${encodeURIComponent(movie.title)}`;
     }
     return url;
   }, [movie.posterUrl, movie.title]);
+
+  const [imgSrc, setImgSrc] = useState(imageUrl);
+
+  useEffect(() => {
+    setImgSrc(imageUrl);
+  }, [imageUrl]);
 
   return (
     <TransitionLink href={`/movies/${movie.id}`}>
@@ -325,11 +331,15 @@ function MoviePoster({ movie }: MoviePosterProps) {
         {/* Poster Image */}
         <div className="relative w-full h-full rounded-lg overflow-hidden shadow-2xl">
           <Image
-            src={imageUrl}
+            src={imgSrc}
             alt={movie.title}
             fill
             className="object-cover transition-transform duration-300"
             onLoad={() => setIsLoaded(true)}
+            referrerPolicy="no-referrer"
+            onError={() => {
+              setImgSrc(`https://placehold.co/600x900.png?text=${encodeURIComponent(movie.title)}`);
+            }}
             sizes="160px"
           />
           

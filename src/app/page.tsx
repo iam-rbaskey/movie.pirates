@@ -67,7 +67,7 @@ export default async function LandingPage() {
           <div className="grid grid-cols-4 gap-2.5 rotate-[15deg] scale-105 translate-x-14 -translate-y-8 skew-y-2">
             {sneakPeekMovies.map((movie) => {
               const url = movie.posterUrl;
-              const imageUrl = (!url || url.includes('/title/') || url.includes('/name/') || !url.startsWith('http'))
+              const imageUrl = (!url || url.includes('/title/') || url.includes('/name/') || (!url.startsWith('http') && !url.startsWith('data:')))
                 ? `https://placehold.co/150x225.png?text=${encodeURIComponent(movie.title)}`
                 : url;
               return (
@@ -78,6 +78,7 @@ export default async function LandingPage() {
                     fill
                     className="object-cover"
                     sizes="100px"
+                    referrerPolicy="no-referrer"
                   />
                 </div>
               );

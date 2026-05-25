@@ -14,7 +14,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, Edit, Film, Search, Eye, Filter, ArrowUpDown, Star, Globe2, Trash, CheckSquare, Square, Check, X, ShieldAlert } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Edit, Film, Search, Eye, Filter, ArrowUpDown, Star, Globe2, Trash, CheckSquare, Square, Check, X, ShieldAlert, Tv } from 'lucide-react';
 import Image from 'next/image';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
@@ -43,6 +43,7 @@ export default function AdminMoviesPage() {
 
   // Bulk Selection States
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
   const form = useForm<MovieCreateInput>({
     resolver: zodResolver(MovieCreateInputSchema),
@@ -300,7 +301,7 @@ export default function AdminMoviesPage() {
 
   const getSanitizedUrl = (movie: MovieOutput) => {
     const url = movie.posterUrl;
-    if (!url || url.includes('/title/') || url.includes('/name/') || !url.startsWith('http')) {
+    if (!url || url.includes('/title/') || url.includes('/name/') || (!url.startsWith('http') && !url.startsWith('data:'))) {
       return `https://placehold.co/100x150.png?text=${encodeURIComponent(movie.title)}`;
     }
     return url;
@@ -878,7 +879,7 @@ export default function AdminMoviesPage() {
                   </th>
                   <th className="px-6 py-2 w-[80px]">Poster</th>
                   <th className="px-6 py-2 w-[220px]">Title</th>
-                  <th className="px-6 py-2 w-[140px]">Status</th>
+                  <th className="px-6 py-2 w-[140px]">Rating</th>
                   <th className="px-6 py-2 w-[120px]">Category</th>
                   <th className="px-6 py-2 w-[100px]">Views</th>
                   <th className="px-6 py-2 w-[130px]">Streams</th>
@@ -920,11 +921,15 @@ export default function AdminMoviesPage() {
                       <td className="px-6 py-3">
                         <div className="w-[56px] h-[72px] rounded-xl overflow-hidden relative border border-white/10 shadow-md">
                           <Image 
-                            src={getSanitizedUrl(movie)} 
+                            src={brokenImages[movie.id] ? `https://placehold.co/100x150.png?text=${encodeURIComponent(movie.title)}` : getSanitizedUrl(movie)} 
                             alt={movie.title} 
                             fill
                             sizes="56px"
                             className="object-cover" 
+                            referrerPolicy="no-referrer"
+                            onError={() => {
+                              setBrokenImages(prev => ({ ...prev, [movie.id]: true }));
+                            }}
                           />
                         </div>
                       </td>
@@ -944,31 +949,23 @@ export default function AdminMoviesPage() {
                           </button>
                         </div>
                         <div className="flex items-center gap-1.5 mt-1">
-                          <Globe2 className="w-3 h-3 text-[#666666]" />
-                          <span className="text-[9px] text-[#A1A1A1] font-mono tracking-wider truncate max-w-[170px]">
-                            {regions.join(', ')}
+                          {movie.type === 'series' ? (
+                            <Tv className="w-3 h-3 text-[#FF5A5F]" />
+                          ) : (
+                            <Film className="w-3 h-3 text-[#00D1B2]" />
+                          )}
+                          <span className="text-[9px] text-[#A1A1A1] font-semibold uppercase tracking-wider">
+                            {movie.type === 'series' ? 'TV Series' : 'Movie'}
                           </span>
                         </div>
                       </td>
 
-                      {/* Status Dropdown */}
+                      {/* Rating */}
                       <td className="px-6 py-3">
-                        <select
-                          value={status}
-                          onChange={(e) => handleStatusChange(movie, e.target.value as any)}
-                          className={cn(
-                            "bg-white/[0.02] border rounded-xl text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 focus:outline-none cursor-pointer shadow-sm transition-all",
-                            status === 'published' && 'border-emerald-500/30 text-emerald-500 bg-emerald-500/5',
-                            status === 'draft' && 'border-amber-500/30 text-amber-500 bg-amber-500/5',
-                            status === 'scheduled' && 'border-blue-500/30 text-blue-500 bg-blue-500/5',
-                            status === 'archived' && 'border-[#666666]/30 text-[#A1A1A1] bg-white/5'
-                          )}
-                        >
-                          <option value="draft" className="bg-[#0D0D0D] text-white">Draft</option>
-                          <option value="published" className="bg-[#0D0D0D] text-white">Published</option>
-                          <option value="scheduled" className="bg-[#0D0D0D] text-white">Scheduled</option>
-                          <option value="archived" className="bg-[#0D0D0D] text-white">Archived</option>
-                        </select>
+                        <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/25 px-2.5 py-1.5 rounded-xl w-fit text-amber-500 font-bold text-[10px] shadow-sm uppercase tracking-wider">
+                          <Star className="w-3.5 h-3.5 fill-current" />
+                          <span>{movie.rating > 0 ? `${movie.rating.toFixed(1)}/10` : 'Unrated'}</span>
+                        </div>
                       </td>
 
                       {/* Category */}
