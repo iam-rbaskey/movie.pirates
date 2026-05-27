@@ -102,6 +102,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     );
   }
 
+  const isCommander = userEmail === 'rbaskeydomi2018@gmail.com';
+
   const navItems: NavLinkItem[] = [
     { label: 'Dashboard', href: '/admin', icon: LayoutDashboard, isActivePath: pathname === '/admin', isDisabled: false },
     { label: 'Contents', href: '/admin/movies', icon: Film, isActivePath: pathname === '/admin/movies' || pathname.startsWith('/admin/movies/'), isDisabled: false },
@@ -109,8 +111,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { label: 'Analytics', href: '/admin/analytics', icon: BarChart3, isActivePath: pathname === '/admin/analytics', isDisabled: false },
     { label: 'Search Analytics', href: '/admin/search-analytics', icon: Search, isActivePath: pathname === '/admin/search-analytics', isDisabled: false },
     { label: 'Users', href: '/admin/users', icon: Users, isActivePath: pathname === '/admin/users' || pathname.startsWith('/admin/users/'), isDisabled: false },
-    { label: 'Roles & Permissions', href: '/admin/roles', icon: Contact, isActivePath: pathname === '/admin/roles', isDisabled: false },
-    { label: 'Audit Logs', href: '/admin/logs', icon: Terminal, isActivePath: pathname === '/admin/logs', isDisabled: false },
+    ...(isCommander ? [
+      { label: 'Roles & Permissions', href: '/admin/roles', icon: Contact, isActivePath: pathname === '/admin/roles', isDisabled: false },
+      { label: 'Audit Logs', href: '/admin/logs', icon: Terminal, isActivePath: pathname === '/admin/logs', isDisabled: false }
+    ] : []),
     { label: 'Settings', href: '/admin/settings', icon: Settings, isActivePath: pathname === '/admin/settings', isDisabled: false },
   ];
 

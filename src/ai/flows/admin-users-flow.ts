@@ -114,8 +114,8 @@ export async function updateUserByAdmin(input: UpdateUserByAdminInput): Promise<
   const { userId, ...updateData } = input;
   try {
     const caller = await verifyAuth();
-    if (!caller || (caller.role !== 'Commander' && caller.hierarchyLevel < 80)) {
-      return { success: false, message: 'Unauthorized: Admin role (hierarchy 80+) required.' };
+    if (!caller || caller.role !== 'Commander') {
+      return { success: false, message: 'Unauthorized: Supreme Commander role required.' };
     }
 
     if (!ObjectId.isValid(userId)) {
@@ -219,8 +219,8 @@ export async function deleteUserByAdmin(input: DeleteUserByAdminInput): Promise<
   const { userId } = input;
   try {
     const caller = await verifyAuth();
-    if (!caller || (caller.role !== 'Commander' && caller.hierarchyLevel < 80)) {
-      return { success: false, message: 'Unauthorized: Admin role (hierarchy 80+) required.' };
+    if (!caller || caller.role !== 'Commander') {
+      return { success: false, message: 'Unauthorized: Supreme Commander role required.' };
     }
 
     if (!ObjectId.isValid(userId)) {

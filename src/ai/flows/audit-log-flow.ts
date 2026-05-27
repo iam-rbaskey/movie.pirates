@@ -40,8 +40,8 @@ export async function logAuditEvent(input: AuditLogInput) {
 export async function getAuditLogs() {
   try {
     const caller = await verifyAuth();
-    if (!caller || (caller.role !== 'Commander' && caller.hierarchyLevel < 80)) {
-      throw new Error("Unauthorized: Access to logs is restricted.");
+    if (!caller || caller.role !== 'Commander') {
+      throw new Error("Unauthorized: Access to logs is restricted to the Commander only.");
     }
 
     const { db } = await connectToDatabase();

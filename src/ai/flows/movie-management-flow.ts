@@ -34,7 +34,7 @@ export type UpdateMovieOutput = UpdateMovieOutputType;
 
 let moviesCache: MovieOutput[] | null = null;
 let cacheTimestamp = 0;
-const CACHE_TTL = 15000;
+const CACHE_TTL = 86400000; // 24 hours (safely invalidated on mutations)
 
 function invalidateMoviesCache() {
   moviesCache = null;

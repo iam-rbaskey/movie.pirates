@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { formatDistanceToNow } from 'date-fns';
+import { verifyAuth } from '@/lib/auth';
 
 const DashboardCountsSchema = z.object({
   totalUsers: z.number().describe("Total number of registered users."),
@@ -11,6 +12,7 @@ const DashboardCountsSchema = z.object({
   totalVisitors: z.number().describe("Total number of unique anonymous visitors."),
   moviesCount: z.number().optional().describe("Number of movies in the system."),
   seriesCount: z.number().optional().describe("Number of TV series in the system."),
+  posterlessCount: z.number().optional().describe("Number of movies missing poster artwork."),
 });
 
 const RecentActivityItemSchema = z.object({
@@ -36,11 +38,17 @@ const AdminDashboardDataOutputSchema = z.object({
   recentActivity: z.array(RecentActivityItemSchema),
   monthlySignups: z.array(MonthlySignupItemSchema),
   dailyVisitors: z.array(DailyVisitorItemSchema),
+  currentUser: z.object({
+    name: z.string(),
+    role: z.string(),
+    hierarchyLevel: z.number(),
+  }).optional().nullable(),
 });
 export type AdminDashboardDataOutput = z.infer<typeof AdminDashboardDataOutputSchema>;
 
 export async function getAdminDashboardData(): Promise<AdminDashboardDataOutput> {
   try {
+    const caller = await verifyAuth();
     const { db } = await connectToDatabase();
     
     const usersCollection = db.collection('users');
@@ -61,6 +69,14 @@ export async function getAdminDashboardData(): Promise<AdminDashboardDataOutput>
       ]
     });
     const seriesCount = await moviesCollection.countDocuments({ type: 'series' });
+    
+    const posterlessCount = await moviesCollection.countDocuments({
+      $or: [
+        { posterUrl: { $exists: false } },
+        { posterUrl: null },
+        { posterUrl: "" }
+      ]
+    });
     
     let totalReviews = 0;
     try {
@@ -102,84 +118,83 @@ export async function getAdminDashboardData(): Promise<AdminDashboardDataOutput>
       combinedActivityInternal.push({
         id: movie._id.toString(),
         type: 'New Movie',
-        description: `"${movie.title || 'A movie'}" was added.`, 
+        description: `New ${movie.type || 'movie'} "${movie.title}" was added.`, 
         time: movie.createdAt ? formatDistanceToNow(new Date(movie.createdAt), { addSuffix: true }) : 'Unknown time',
-        timestamp: movie.createdAt ? new Date(movie.createdAt) : new Date(0), 
+        timestamp: movie.createdAt ? new Date(movie.createdAt) : new Date(0),
       });
     });
-    
-    combinedActivityInternal.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-    const slicedActivity = combinedActivityInternal.slice(0, 5);
 
-    const recentActivity = slicedActivity.map(activity => ({
-      ...activity,
-      timestamp: activity.timestamp.toISOString(),
+    // Sort by timestamp desc and limit to 5
+    combinedActivityInternal.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    const recentActivity = combinedActivityInternal.slice(0, 5).map(act => ({
+      id: act.id,
+      type: act.type,
+      description: act.description,
+      time: act.time,
+      timestamp: act.timestamp.toISOString(),
     }));
 
-    // Common setup for date ranges
-    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    // Monthly signups grouping (last 12 months)
     const twelveMonthsAgo = new Date();
-    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11); 
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
     twelveMonthsAgo.setDate(1);
-    twelveMonthsAgo.setHours(0, 0, 0, 0);
+    twelveMonthsAgo.setHours(0,0,0,0);
 
-    // --- Monthly Signups (Last 12 months) ---
-    const signupAggregation = await usersCollection.aggregate([
+    const signups = await usersCollection.aggregate([
       { $match: { createdAt: { $gte: twelveMonthsAgo } } },
-      { $group: { _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } }, users: { $sum: 1 } } },
-      { $sort: { "_id.year": 1, "_id.month": 1 } }
+      { $group: {
+          _id: { 
+            year: { $year: "$createdAt" }, 
+            month: { $month: "$createdAt" } 
+          },
+          count: { $sum: 1 }
+        }
+      }
     ]).toArray();
 
     const monthlySignupsMap = new Map<string, number>();
-    for (let i = 0; i < 12; i++) {
+    signups.forEach(s => {
+      const key = `${s._id.year}-${s._id.month.toString().padStart(2, '0')}`;
+      monthlySignupsMap.set(key, s.count);
+    });
+
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthlySignups: { name: string, users: number }[] = [];
+    
+    for (let i = 11; i >= 0; i--) {
       const date = new Date();
       date.setMonth(date.getMonth() - i);
-      const monthKey = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-      monthlySignupsMap.set(monthKey, 0);
+      const key = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+      monthlySignups.push({
+        name: monthNames[date.getMonth()],
+        users: monthlySignupsMap.get(key) || 0
+      });
     }
-    
-    signupAggregation.forEach(item => {
-      if (item._id && typeof item._id.month === 'number' && typeof item._id.year === 'number') {
-        const key = `${monthNames[item._id.month - 1]} ${item._id.year}`;
-        if (monthlySignupsMap.has(key)) monthlySignupsMap.set(key, item.users);
-      }
-    });
-    
-    const monthlySignups: { name: string, users: number }[] = [];
-    for (let i = 11; i >= 0; i--) { 
-        const date = new Date();
-        date.setMonth(date.getMonth() - i);
-        const monthKey = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-        const monthName = monthNames[date.getMonth()];
-        monthlySignups.push({ name: monthName, users: monthlySignupsMap.get(monthKey) || 0 });
-    }
-    
-    // --- Daily Visitors (Last 30 days) ---
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29); // include today
-    thirtyDaysAgo.setHours(0, 0, 0, 0);
 
-    const visitorAggregation = await visitorsCollection.aggregate([
-      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
-      { $group: { _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" }, day: { $dayOfMonth: "$createdAt" } }, visitors: { $sum: 1 } } },
-      { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } }
-    ]).toArray();
-    
-    const dailyVisitorsMap = new Map<string, number>();
-    for (let i = 0; i < 30; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateKey = `${monthNames[date.getMonth()]} ${date.getDate()}`;
-      dailyVisitorsMap.set(dateKey, 0);
-    }
-    
-    visitorAggregation.forEach(item => {
-      if (item._id && typeof item._id.month === 'number' && typeof item._id.day === 'number') {
-        const key = `${monthNames[item._id.month - 1]} ${item._id.day}`;
-        dailyVisitorsMap.set(key, item.visitors);
+    // Daily visitors grouping (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+    thirtyDaysAgo.setHours(0,0,0,0);
+
+    const visitors = await visitorsCollection.aggregate([
+      { $match: { firstSeen: { $gte: thirtyDaysAgo } } },
+      { $group: {
+          _id: { 
+            year: { $year: "$firstSeen" }, 
+            month: { $month: "$firstSeen" },
+            day: { $dayOfMonth: "$firstSeen" }
+          },
+          count: { $sum: 1 }
+        }
       }
+    ]).toArray();
+
+    const dailyVisitorsMap = new Map<string, number>();
+    visitors.forEach(v => {
+      const key = `${monthNames[v._id.month - 1]} ${v._id.day}`;
+      dailyVisitorsMap.set(key, v.count);
     });
-    
+
     const dailyVisitors: { date: string, visitors: number }[] = [];
     for (let i = 29; i >= 0; i--) {
       const date = new Date();
@@ -189,10 +204,15 @@ export async function getAdminDashboardData(): Promise<AdminDashboardDataOutput>
     }
 
     return {
-      counts: { totalUsers, totalMovies, totalReviews, totalVisitors, moviesCount, seriesCount },
+      counts: { totalUsers, totalMovies, totalReviews, totalVisitors, moviesCount, seriesCount, posterlessCount },
       recentActivity,
       monthlySignups,
       dailyVisitors,
+      currentUser: caller ? {
+        name: caller.name,
+        role: caller.role,
+        hierarchyLevel: caller.hierarchyLevel,
+      } : null
     };
 
   } catch (e: any) {
@@ -214,10 +234,11 @@ export async function getAdminDashboardData(): Promise<AdminDashboardDataOutput>
     }
 
     return {
-      counts: { totalUsers: 0, totalMovies: 0, totalReviews: 0, totalVisitors: 0, moviesCount: 0, seriesCount: 0 },
+      counts: { totalUsers: 0, totalMovies: 0, totalReviews: 0, totalVisitors: 0, moviesCount: 0, seriesCount: 0, posterlessCount: 0 },
       recentActivity: [],
       monthlySignups: fallbackMonths,
       dailyVisitors: fallbackDays,
+      currentUser: null,
     };
   }
 }

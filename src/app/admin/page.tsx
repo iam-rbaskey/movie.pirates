@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { Users, Film, Star, Activity, Loader2, Globe, Tv, Play, Clock, Sparkles } from 'lucide-react';
+import { Users, Film, Star, Activity, Loader2, Globe, Tv, Play, Clock, Sparkles, ShieldAlert } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { getAdminDashboardData, type AdminDashboardDataOutput } from '@/ai/flows/admin-data-flow';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -63,6 +63,41 @@ export default function AdminDashboardPage() {
   }
 
   const { counts, recentActivity, monthlySignups, dailyVisitors } = dashboardData;
+  const posterlessCount = counts.posterlessCount ?? 0;
+  const currentUser = dashboardData.currentUser;
+
+  const getGreetingText = (role: string, name: string) => {
+    switch (role) {
+      case 'Commander':
+        return `Welcome, Commander ${name}`;
+      case 'Admin':
+        return `Welcome, Administrator ${name}`;
+      case 'Content Manager':
+        return `Welcome, Content Manager ${name}`;
+      case 'Contributor':
+        return `Welcome, Contributor ${name}`;
+      default:
+        return `Welcome, ${name}`;
+    }
+  };
+
+  const getGreetingDescription = (role: string) => {
+    switch (role) {
+      case 'Commander':
+        return "Supreme system authority active. Access secure logs, manage role matrices, modify core settings, and control global system operations.";
+      case 'Admin':
+        return "Operational management active. Manage contents, moderate system metadata, check analytics telemetry, and oversee subordinates.";
+      case 'Content Manager':
+        return "Content operations active. Upload trailers, edit metadata, curate playlists, and manage media catalog inventory.";
+      case 'Contributor':
+        return "Contributor dashboard active. Suggest catalog edits, submit content drafts, and review workspace stats.";
+      default:
+        return "Access secure telemetry data, modify catalogue offerings, moderate platform commentary, and control global system variables.";
+    }
+  };
+
+  const userGreetingName = currentUser?.name || "Admin User";
+  const userRole = currentUser?.role || "Admin";
 
   const cards = [
     {
@@ -129,13 +164,26 @@ export default function AdminDashboardPage() {
             <span>Admin Control Panel Active</span>
           </div>
           <h1 className="text-3xl md:text-4xl lg:text-5xl font-black font-headline tracking-wider text-white uppercase drop-shadow-md">
-            Commander Overview
+            {getGreetingText(userRole, userGreetingName)}
           </h1>
           <p className="text-xs md:text-sm text-white/70 max-w-xl font-medium tracking-wide">
-            Access secure telemetry data, modify catalogue offerings, moderate platform commentary, and control global system variables.
+            {getGreetingDescription(userRole)}
           </p>
         </div>
       </div>
+
+      {/* Posterless Alert */}
+      {posterlessCount > 0 && (
+        <Alert variant="destructive" className="bg-[#EF4444]/10 border-[#EF4444]/20 text-white rounded-[24px] p-5 shadow-lg backdrop-blur-md animate-fade-in flex gap-3.5 items-start">
+          <ShieldAlert className="h-5 w-5 text-[#EF4444] mt-0.5 flex-shrink-0" />
+          <div className="space-y-1">
+            <AlertTitle className="font-headline font-bold text-xs tracking-wider uppercase text-white">Missing Poster Artwork</AlertTitle>
+            <AlertDescription className="text-[11px] text-[#A1A1A1] leading-relaxed">
+              There are currently <strong className="text-white">{posterlessCount}</strong> contents in the system missing poster artwork. Please navigate to the <a href="/admin/movies" className="text-[#FF5A5F] hover:underline font-bold">Contents Page</a> to update them.
+            </AlertDescription>
+          </div>
+        </Alert>
+      )}
 
       {/* 5 Horizontal Responsive Cards */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">

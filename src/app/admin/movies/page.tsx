@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { addMovie, getMovies, deleteMovie, updateMovie, restoreMovie, deleteMoviePermanently, type MovieCreateInput, type MovieOutput, type UpdateMovieInput } from '@/ai/flows/movie-management-flow';
+import { addMovie, getMovies, deleteMovie, updateMovie, restoreMovie, deleteMoviePermanently, getMovieById, type MovieCreateInput, type MovieOutput, type UpdateMovieInput } from '@/ai/flows/movie-management-flow';
 import { MovieCreateInputSchema } from '@/ai/schemas/movie-schemas';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -104,25 +104,37 @@ export default function AdminMoviesPage() {
     fetchMovies();
   }, [fetchMovies]);
 
-  const handleEditClick = (movie: MovieOutput) => {
-    setEditingMovie(movie);
-    const releaseDate = movie.releaseDate ? new Date(movie.releaseDate).toISOString().split('T')[0] : '';
-    const castData = movie.cast && movie.cast.length > 0 ? movie.cast : [];
-    const genreData = movie.genres && movie.genres.length > 0 ? movie.genres : [];
-    const episodeData = movie.episodes && movie.episodes.length > 0 ? movie.episodes : [];
+  const handleEditClick = async (movie: MovieOutput) => {
+    setIsLoadingMovies(true);
+    try {
+      const fullMovie = await getMovieById({ movieId: movie.id });
+      if (!fullMovie) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to fetch movie details." });
+        return;
+      }
+      setEditingMovie(fullMovie);
+      const releaseDate = fullMovie.releaseDate ? new Date(fullMovie.releaseDate).toISOString().split('T')[0] : '';
+      const castData = fullMovie.cast && fullMovie.cast.length > 0 ? fullMovie.cast : [];
+      const genreData = fullMovie.genres && fullMovie.genres.length > 0 ? fullMovie.genres : [];
+      const episodeData = fullMovie.episodes && fullMovie.episodes.length > 0 ? fullMovie.episodes : [];
 
-    form.reset({
-      ...movie,
-      type: movie.type || 'movie',
-      releaseDate,
-      cast: castData,
-      genres: genreData,
-      episodes: episodeData,
-      status: movie.status || (movie.watchUrl ? 'published' : 'draft'),
-      isFeatured: movie.isFeatured ?? false,
-      regions: movie.regions || ['Global'],
-    });
-    setIsFormOpen(true);
+      form.reset({
+        ...fullMovie,
+        type: fullMovie.type || 'movie',
+        releaseDate,
+        cast: castData,
+        genres: genreData,
+        episodes: episodeData,
+        status: fullMovie.status || (fullMovie.watchUrl ? 'published' : 'draft'),
+        isFeatured: fullMovie.isFeatured ?? false,
+        regions: fullMovie.regions || ['Global'],
+      });
+      setIsFormOpen(true);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message || "Failed to load movie details." });
+    } finally {
+      setIsLoadingMovies(false);
+    }
   };
 
   const handleAddNewClick = () => {
@@ -457,6 +469,8 @@ export default function AdminMoviesPage() {
     setSelectedIds([]);
   }, [searchTerm, activeTab, typeFilter, statusFilter, sortBy]);
 
+  const posterlessCount = movies.filter(m => !m.posterUrl || m.posterUrl.trim() === '').length;
+
   return (
     <div className="space-y-8 animate-fade-in pb-16 relative">
       
@@ -465,6 +479,11 @@ export default function AdminMoviesPage() {
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold font-headline flex items-center text-white uppercase tracking-wider">
             <Film className="mr-3 h-8 w-8 text-[#FF5A5F]" /> Operations Control
+            {posterlessCount > 0 && (
+              <Badge variant="destructive" className="ml-4 bg-[#EF4444]/15 border-[#EF4444]/25 text-[#EF4444] text-[10px] font-extrabold tracking-widest uppercase px-2 py-0.5 animate-pulse">
+                Posterless: {posterlessCount}
+              </Badge>
+            )}
           </h1>
           <p className="text-xs md:text-sm text-[#A1A1A1] font-medium mt-1">
             Futuristic OTT catalogue workflows, scheduling pipeline, and media configurations.

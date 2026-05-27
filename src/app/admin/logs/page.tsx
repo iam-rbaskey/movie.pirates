@@ -121,7 +121,7 @@ export default function AuditLogsPage() {
         <div className="space-y-2">
           <h2 className="text-lg font-bold text-white uppercase tracking-wider font-headline">Access Restriction</h2>
           <p className="text-xs text-[#A1A1A1] leading-relaxed">
-            {errorMsg}. Only Commanders (level 100) and Admins (level 80+) are permitted to view the platform operation logs.
+            {errorMsg}. Only the Supreme Commander is permitted to view the platform operation logs.
           </p>
         </div>
         <Button onClick={fetchLogs} className="bg-white/5 border border-white/10 text-white text-xs font-bold uppercase tracking-wider h-10 px-5 rounded-xl hover:bg-white/10">

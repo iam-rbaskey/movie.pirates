@@ -236,6 +236,34 @@ export default function RolesPermissionsPage() {
 
   const isEditable = checkCanModify(selectedUser);
 
+  const isCommander = currentUserEmail === 'rbaskeydomi2018@gmail.com';
+
+  if (currentUserEmail && !isCommander) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-12rem)] animate-fade-in">
+        <div className="bg-[#0D0D0D]/40 border border-[#EF4444]/20 backdrop-blur-[24px] rounded-[32px] p-8 md:p-12 max-w-lg w-full text-center space-y-6 shadow-[0_15px_50px_rgba(239,68,68,0.15)]">
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-[#EF4444]/10 border border-[#EF4444]/20 flex items-center justify-center text-[#EF4444] animate-bounce shadow-inner">
+            <Lock className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-xl md:text-2xl font-black font-headline text-white uppercase tracking-wider">Access Restrained</h1>
+            <p className="text-xs md:text-sm text-[#A1A1A1] leading-relaxed font-medium">
+              Only the Supreme Commander is permitted to view and manage access control matrices. Your current clearance level does not authorize access to this terminal.
+            </p>
+          </div>
+          <div className="pt-2 border-t border-white/5 flex justify-center">
+            <Button
+              onClick={() => window.location.href = '/admin'}
+              className="bg-[#EF4444]/20 hover:bg-[#EF4444]/30 text-white border border-[#EF4444]/30 rounded-xl text-xs font-bold uppercase tracking-wider px-6 h-11"
+            >
+              Return to Dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading && users.length === 0) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-10rem)]">
