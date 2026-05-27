@@ -49,8 +49,11 @@ export default function AdminUsersPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const fetchedUsers = await getUsers();
-      setUsers(fetchedUsers);
+      const res = await getUsers();
+      if (res && 'error' in res) {
+        throw new Error(res.error);
+      }
+      setUsers(res as UserForAdminOutput[]);
     } catch (e: any) {
       const errorMessage = e.message || "Failed to fetch users.";
       setError(errorMessage);

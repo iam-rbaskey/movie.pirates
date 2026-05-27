@@ -61,7 +61,7 @@ const DeleteUserByAdminOutputSchema = z.object({
 });
 export type DeleteUserByAdminOutput = z.infer<typeof DeleteUserByAdminOutputSchema>;
 
-export async function getUsers(): Promise<GetUsersOutput> {
+export async function getUsers(): Promise<GetUsersOutput | { error: string }> {
   try {
     const caller = await verifyAuth();
     if (!caller || (caller.role !== 'Commander' && caller.hierarchyLevel < 80)) {
@@ -77,7 +77,7 @@ export async function getUsers(): Promise<GetUsersOutput> {
       .sort({ createdAt: -1 })
       .toArray();
 
-    const usersForAdmin: UserForAdminOutput[] = usersFromDb.map(userDoc => {
+    const usersForAdmin = usersFromDb.map(userDoc => {
       const doc = userDoc as any;
       const isCommanderEmail = doc.email === 'rbaskeydomi2018@gmail.com';
       const resolvedRole = isCommanderEmail ? 'Commander' : (doc.role || 'User');
@@ -106,7 +106,7 @@ export async function getUsers(): Promise<GetUsersOutput> {
     return usersForAdmin;
   } catch (error: any) {
     console.error("Error fetching users for admin panel:", error);
-    return [];
+    return { error: error.message || String(error) };
   }
 }
 

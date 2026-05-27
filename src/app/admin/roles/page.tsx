@@ -97,12 +97,16 @@ export default function RolesPermissionsPage() {
     setIsLoading(true);
     try {
       const list = await getUsers();
-      setUsers(list);
+      if (list && 'error' in list) {
+        throw new Error(list.error);
+      }
+      const usersList = list as UserForAdminOutput[];
+      setUsers(usersList);
       
       // Auto-select first user if none is selected
-      if (list.length > 0 && !selectedUserId) {
+      if (usersList.length > 0 && !selectedUserId) {
         // Prefer selecting the first non-Commander user, or first user if none
-        const defaultUser = list.find(u => u.role !== 'Commander') || list[0];
+        const defaultUser = usersList.find(u => u.role !== 'Commander') || usersList[0];
         setSelectedUserId(defaultUser.id);
       }
     } catch (e: any) {
