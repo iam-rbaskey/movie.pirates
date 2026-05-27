@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { getUsers, updateUserByAdmin, type UserForAdminOutput } from '@/ai/flows/admin-users-flow';
+import { updateUserByAdmin, type UserForAdminOutput } from '@/ai/flows/admin-users-flow';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -96,11 +96,17 @@ export default function RolesPermissionsPage() {
   const fetchUsersList = useCallback(async () => {
     setIsLoading(true);
     try {
-      const list = await getUsers();
-      if (list && 'error' in list) {
-        throw new Error(list.error);
+      // Use API route instead of Server Action to avoid middleware intercepting
+      // the Server Action POST and returning HTML redirect instead of JSON
+      const response = await fetch('/api/admin/users', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || `Server error: ${response.status}`);
       }
-      const usersList = list as UserForAdminOutput[];
+      const usersList = data.users as UserForAdminOutput[];
       setUsers(usersList);
       
       // Auto-select first user if none is selected

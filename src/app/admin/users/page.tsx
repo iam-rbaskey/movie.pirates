@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { getUsers, updateUserByAdmin, deleteUserByAdmin, type UserForAdminOutput, type UpdateUserByAdminInput } from '@/ai/flows/admin-users-flow';
+import { updateUserByAdmin, deleteUserByAdmin, type UserForAdminOutput, type UpdateUserByAdminInput } from '@/ai/flows/admin-users-flow';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -49,11 +49,17 @@ export default function AdminUsersPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await getUsers();
-      if (res && 'error' in res) {
-        throw new Error(res.error);
+      // Use API route instead of Server Action to avoid middleware redirect
+      // intercepting the Server Action POST and returning HTML instead of JSON
+      const response = await fetch('/api/admin/users', {
+        method: 'GET',
+        credentials: 'include', // send cookies with the request
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || `Server error: ${response.status}`);
       }
-      setUsers(res as UserForAdminOutput[]);
+      setUsers(data.users as UserForAdminOutput[]);
     } catch (e: any) {
       const errorMessage = e.message || "Failed to fetch users.";
       setError(errorMessage);
