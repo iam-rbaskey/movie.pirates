@@ -61,9 +61,15 @@ export async function getUserProfile(input: GetUserProfileInput): Promise<UserPr
       watchlist: user.watchlist || [],
       reviews: augmentedReviews,
       ratingHistory: user.ratingHistory || [],
-      role: user.role || 'user',
-      dataAiHint: user.dataAiHint || null,
+      role: (user.role as any) === 'admin' ? 'Admin' : ((user.role as any) === 'user' ? 'User' : (user.role || 'User')),
+      hierarchyLevel: user.hierarchyLevel ?? 0,
+      permissions: user.permissions || {},
+      roleAssignedBy: user.roleAssignedBy || null,
+      createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : null,
+      updatedAt: user.updatedAt ? new Date(user.updatedAt).toISOString() : null,
       lastSeen: user.lastSeen ? new Date(user.lastSeen).toISOString() : null,
+      lastIp: user.lastIp || null,
+      dataAiHint: user.dataAiHint || null,
     };
     
     return UserProfileOutputSchema.parse(userForOutput);
@@ -109,9 +115,15 @@ export async function updateUserProfile(input: UpdateUserProfileInput): Promise<
           watchlist: result.watchlist || [],
           reviews: result.reviews || [],
           ratingHistory: result.ratingHistory || [],
-          role: result.role || 'user',
-          dataAiHint: result.dataAiHint || null,
+          role: (result.role as any) === 'admin' ? 'Admin' : ((result.role as any) === 'user' ? 'User' : (result.role || 'User')),
+          hierarchyLevel: result.hierarchyLevel ?? 0,
+          permissions: result.permissions || {},
+          roleAssignedBy: result.roleAssignedBy || null,
+          createdAt: result.createdAt ? new Date(result.createdAt).toISOString() : null,
+          updatedAt: result.updatedAt ? new Date(result.updatedAt).toISOString() : null,
           lastSeen: result.lastSeen ? new Date(result.lastSeen).toISOString() : null,
+          lastIp: result.lastIp || null,
+          dataAiHint: result.dataAiHint || null,
       };
       return { success: true, message: 'Profile updated successfully.', user: UserProfileOutputSchema.parse(updatedUserForOutput) };
     }

@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { addMovie, getMovies, deleteMovie, updateMovie, type MovieCreateInput, type MovieOutput, type UpdateMovieInput } from '@/ai/flows/movie-management-flow';
+import { addMovie, getMovies, deleteMovie, updateMovie, restoreMovie, deleteMoviePermanently, type MovieCreateInput, type MovieOutput, type UpdateMovieInput } from '@/ai/flows/movie-management-flow';
 import { MovieCreateInputSchema } from '@/ai/schemas/movie-schemas';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, Edit, Film, Search, Eye, Filter, ArrowUpDown, Star, Globe2, Trash, CheckSquare, Square, Check, X, ShieldAlert, Tv } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Edit, Film, Search, Eye, Filter, ArrowUpDown, Star, Globe2, Trash, CheckSquare, Square, Check, X, ShieldAlert, Tv, RefreshCw } from 'lucide-react';
 import Image from 'next/image';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
@@ -85,11 +85,12 @@ export default function AdminMoviesPage() {
 
   const contentType = form.watch('type');
 
-  const fetchMovies = async () => {
+  const fetchMovies = useCallback(async () => {
     setIsLoadingMovies(true);
     setError(null);
     try {
-      const fetchedMovies = await getMovies();
+      const isTrash = activeTab === 'trash';
+      const fetchedMovies = await getMovies({ includeDeleted: isTrash });
       setMovies(fetchedMovies);
     } catch (e: any) {
       setError(e.message || "Failed to fetch movies.");
@@ -97,11 +98,11 @@ export default function AdminMoviesPage() {
     } finally {
       setIsLoadingMovies(false);
     }
-  };
+  }, [activeTab, toast]);
 
   useEffect(() => {
     fetchMovies();
-  }, []);
+  }, [fetchMovies]);
 
   const handleEditClick = (movie: MovieOutput) => {
     setEditingMovie(movie);
@@ -207,6 +208,40 @@ export default function AdminMoviesPage() {
     }
   };
 
+  const handleRestoreMovie = async (movieId: string) => {
+    setIsDeleting(true);
+    try {
+      const result = await restoreMovie(movieId);
+      if (result.success) {
+        toast({ title: "Content Restored", description: result.message });
+        await fetchMovies();
+      } else {
+        toast({ variant: "destructive", title: "Error", description: result.message });
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message || "Failed to restore movie." });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handlePermanentDeleteMovie = async (movieId: string) => {
+    setIsDeleting(true);
+    try {
+      const result = await deleteMoviePermanently(movieId);
+      if (result.success) {
+        toast({ title: "Erase Success", description: result.message });
+        await fetchMovies();
+      } else {
+        toast({ variant: "destructive", title: "Error", description: result.message });
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message || "Failed to permanently delete movie." });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Inline database updates
   const handleToggleFeatured = async (movie: MovieOutput) => {
     const nextFeatured = !(movie.isFeatured ?? false);
@@ -278,6 +313,45 @@ export default function AdminMoviesPage() {
       await fetchMovies();
     } catch (e: any) {
       toast({ variant: "destructive", title: "Error", description: e.message || "Failed to delete bulk items." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    setIsSubmitting(true);
+    try {
+      let successCount = 0;
+      for (const id of selectedIds) {
+        const res = await restoreMovie(id);
+        if (res.success) successCount++;
+      }
+      toast({ title: "Bulk Action Completed", description: `Successfully restored ${successCount} content items.` });
+      setSelectedIds([]);
+      await fetchMovies();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message || "Failed to execute bulk restore." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleBulkPermanentDelete = async () => {
+    if (!window.confirm(`Are you sure you want to PERMANENTLY delete the ${selectedIds.length} selected items? This action cannot be undone.`)) {
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      let successCount = 0;
+      for (const id of selectedIds) {
+        const res = await deleteMoviePermanently(id);
+        if (res.success) successCount++;
+      }
+      toast({ title: "Bulk Action Completed", description: `Successfully permanently deleted ${successCount} content items.` });
+      setSelectedIds([]);
+      await fetchMovies();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message || "Failed to execute bulk permanent delete." });
     } finally {
       setIsSubmitting(false);
     }
@@ -787,18 +861,22 @@ export default function AdminMoviesPage() {
           { label: 'Series', id: 'series' },
           { label: 'Documentaries', id: 'docs' },
           { label: 'Short Films', id: 'shorts' },
-          { label: 'Others', id: 'others' }
+          { label: 'Others', id: 'others' },
+          { label: 'Trash Bin', id: 'trash' }
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              'px-5 py-3 rounded-2xl text-xs font-bold tracking-wide uppercase transition-all duration-300',
+              'px-5 py-3 rounded-2xl text-xs font-bold tracking-wide uppercase transition-all duration-300 flex items-center gap-1.5',
               activeTab === tab.id
-                ? 'bg-[#FF5A5F]/18 text-white border border-[#FF5A5F]/30 shadow-inner'
+                ? activeTab === 'trash'
+                  ? 'bg-red-500/18 text-red-400 border border-red-500/30 shadow-inner'
+                  : 'bg-[#FF5A5F]/18 text-white border border-[#FF5A5F]/30 shadow-inner'
                 : 'text-[#A1A1A1] hover:text-white border border-transparent hover:bg-white/3'
             )}
           >
+            {tab.id === 'trash' && <Trash className="w-3.5 h-3.5 animate-pulse" />}
             {tab.label}
           </button>
         ))}
@@ -990,53 +1068,101 @@ export default function AdminMoviesPage() {
 
                       {/* Actions */}
                       <td className="px-6 py-3 rounded-r-[22px] text-right space-x-1.5">
-                        <Link 
-                          href={`/movies/${movie.id}`} 
-                          className="inline-flex items-center justify-center p-2 rounded-xl bg-white/5 border border-white/5 text-[#A1A1A1] hover:text-white hover:bg-white/10 transition-colors"
-                          title="View on Platform"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Link>
-                        
-                        <button
-                          onClick={() => handleEditClick(movie)}
-                          type="button"
-                          className="p-2 rounded-xl bg-white/5 border border-white/5 text-[#A1A1A1] hover:text-[#FF5A5F] hover:bg-white/10 transition-colors"
-                          title="Edit Details"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
+                        {activeTab === 'trash' ? (
+                          <>
+                            {/* Restore Button */}
                             <button
+                              onClick={() => handleRestoreMovie(movie.id)}
                               type="button"
-                              className="p-2 rounded-xl bg-white/5 border border-white/5 text-[#A1A1A1] hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors"
-                              title="Delete Item"
+                              className="p-2 rounded-xl bg-[#00D1B2]/10 border border-[#00D1B2]/20 text-[#00D1B2] hover:text-white hover:bg-[#00D1B2]/20 transition-all"
+                              title="Restore to Catalogue"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <RefreshCw className="w-4 h-4" />
                             </button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent className="bg-[#0D0D0D]/95 border border-white/10 text-white rounded-3xl">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle className="font-headline uppercase tracking-wider font-bold">Remove from index?</AlertDialogTitle>
-                              <AlertDialogDescription className="text-xs text-[#A1A1A1]">
-                                This action cannot be reversed. Entry for "{movie.title}" will be permanently removed from MongoDB database.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel className="bg-white/5 hover:bg-white/10 text-white border-white/10 rounded-2xl">Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => handleDeleteMovie(movie.id)}
-                                disabled={isDeleting}
-                                className="bg-[#EF4444] hover:bg-[#EF4444]/90 text-white rounded-2xl font-bold uppercase tracking-wider"
-                              >
-                                {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Confirm Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                            
+                            {/* Permanent Delete Button */}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="p-2 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] hover:text-white hover:bg-[#EF4444]/20 transition-all"
+                                  title="Delete Permanently"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="bg-[#0D0D0D]/95 border border-white/10 text-white rounded-3xl">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="font-headline uppercase tracking-wider font-bold text-red-500">Permanently Erase Content?</AlertDialogTitle>
+                                  <AlertDialogDescription className="text-xs text-[#A1A1A1]">
+                                    This action is destructive and irreversible. "{movie.title}" will be permanently removed from your database and content storage.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel className="bg-white/5 hover:bg-white/10 text-white border-white/10 rounded-2xl">Cancel</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={() => handlePermanentDeleteMovie(movie.id)}
+                                    disabled={isDeleting}
+                                    className="bg-[#EF4444] hover:bg-[#EF4444]/90 text-white rounded-2xl font-bold uppercase tracking-wider"
+                                  >
+                                    {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Erase Permanently
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
+                        ) : (
+                          <>
+                            <Link 
+                              href={`/movies/${movie.id}`} 
+                              className="inline-flex items-center justify-center p-2 rounded-xl bg-white/5 border border-white/5 text-[#A1A1A1] hover:text-white hover:bg-white/10 transition-colors"
+                              title="View on Platform"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Link>
+                            
+                            <button
+                              onClick={() => handleEditClick(movie)}
+                              type="button"
+                              className="p-2 rounded-xl bg-white/5 border border-white/5 text-[#A1A1A1] hover:text-[#FF5A5F] hover:bg-white/10 transition-colors"
+                              title="Edit Details"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="p-2 rounded-xl bg-white/5 border border-white/5 text-[#A1A1A1] hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors"
+                                  title="Move to Trash"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="bg-[#0D0D0D]/95 border border-white/10 text-white rounded-3xl">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="font-headline uppercase tracking-wider font-bold">Move to Trash Bin?</AlertDialogTitle>
+                                  <AlertDialogDescription className="text-xs text-[#A1A1A1]">
+                                    "{movie.title}" will be soft-deleted. It will disappear from all user-facing pages, but admins can review and restore it from the Trash Bin.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel className="bg-white/5 hover:bg-white/10 text-white border-white/10 rounded-2xl">Cancel</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={() => handleDeleteMovie(movie.id)}
+                                    disabled={isDeleting}
+                                    className="bg-[#EF4444] hover:bg-[#EF4444]/90 text-white rounded-2xl font-bold uppercase tracking-wider"
+                                  >
+                                    {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Confirm Trash
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
+                        )}
                       </td>
                     </tr>
                   );
@@ -1084,30 +1210,49 @@ export default function AdminMoviesPage() {
             <div className="h-4 w-[1px] bg-white/10" />
 
             <div className="flex items-center gap-2">
-              <Button 
-                onClick={() => handleBulkStatusChange('published')}
-                className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 text-[10px] font-bold uppercase tracking-wider rounded-xl h-9 px-3 border border-emerald-500/20"
-              >
-                Publish
-              </Button>
-              <Button 
-                onClick={() => handleBulkStatusChange('draft')}
-                className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-[10px] font-bold uppercase tracking-wider rounded-xl h-9 px-3 border border-amber-500/20"
-              >
-                Draft
-              </Button>
-              <Button 
-                onClick={() => handleBulkStatusChange('archived')}
-                className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-bold uppercase tracking-wider rounded-xl h-9 px-3 border border-white/10"
-              >
-                Archive
-              </Button>
-              <Button 
-                onClick={handleBulkDelete}
-                className="bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-bold uppercase tracking-wider rounded-xl h-9 px-3 border border-red-500/20"
-              >
-                Delete
-              </Button>
+              {activeTab === 'trash' ? (
+                <>
+                  <Button 
+                    onClick={handleBulkRestore}
+                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 text-[10px] font-bold uppercase tracking-wider rounded-xl h-9 px-3 border border-emerald-500/20"
+                  >
+                    Restore Bulk
+                  </Button>
+                  <Button 
+                    onClick={handleBulkPermanentDelete}
+                    className="bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-bold uppercase tracking-wider rounded-xl h-9 px-3 border border-red-500/20"
+                  >
+                    Erase Bulk
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button 
+                    onClick={() => handleBulkStatusChange('published')}
+                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 text-[10px] font-bold uppercase tracking-wider rounded-xl h-9 px-3 border border-emerald-500/20"
+                  >
+                    Publish
+                  </Button>
+                  <Button 
+                    onClick={() => handleBulkStatusChange('draft')}
+                    className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-[10px] font-bold uppercase tracking-wider rounded-xl h-9 px-3 border border-amber-500/20"
+                  >
+                    Draft
+                  </Button>
+                  <Button 
+                    onClick={() => handleBulkStatusChange('archived')}
+                    className="bg-white/5 hover:bg-white/10 text-white text-[10px] font-bold uppercase tracking-wider rounded-xl h-9 px-3 border border-white/10"
+                  >
+                    Archive
+                  </Button>
+                  <Button 
+                    onClick={handleBulkDelete}
+                    className="bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-bold uppercase tracking-wider rounded-xl h-9 px-3 border border-red-500/20"
+                  >
+                    Delete
+                  </Button>
+                </>
+              )}
               <button 
                 onClick={() => setSelectedIds([])}
                 className="p-2 text-[#666666] hover:text-white rounded-lg hover:bg-white/5"

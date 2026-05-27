@@ -57,6 +57,8 @@ export type UpdateMovieInput = z.infer<typeof UpdateMovieInputSchema>;
 // Schema for movie data returned by getMovies flow (maps _id to id)
 export const MovieOutputSchema = MovieCreateInputSchema.extend({
   id: z.string(), // Mapped from _id
+  deletedAt: z.string().datetime().optional().nullable(),
+  deletedBy: z.string().optional().nullable(),
 });
 export type MovieOutput = z.infer<typeof MovieOutputSchema>;
 

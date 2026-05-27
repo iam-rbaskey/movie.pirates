@@ -21,6 +21,8 @@ import {
   type UpdateMovieInput as UpdateMovieInputType,
   type UpdateMovieOutput as UpdateMovieOutputType,
 } from '@/ai/schemas/movie-schemas';
+import { verifyAuth, requirePermission } from '@/lib/auth';
+import { logAuditEvent } from './audit-log-flow';
 
 export type MovieCreateInput = MovieCreateInputType;
 export type MovieOutput = MovieOutputType;
@@ -41,6 +43,7 @@ function invalidateMoviesCache() {
 
 export async function addMovie(movieData: MovieCreateInput): Promise<z.infer<typeof AddMovieOutputSchema>> {
   try {
+    const caller = await requirePermission('create_content');
     const { db } = await connectToDatabase();
     const moviesCollection = db.collection('movies');
 
@@ -59,6 +62,14 @@ export async function addMovie(movieData: MovieCreateInput): Promise<z.infer<typ
 
     if (result.insertedId) {
       invalidateMoviesCache();
+      
+      await logAuditEvent({
+        action: 'create_content',
+        details: `Created new ${movieData.type} "${movieData.title}".`,
+        category: 'content',
+        severity: 'info'
+      });
+
       return { success: true, message: 'Movie added successfully!', movieId: result.insertedId.toString() };
     }
     return { success: false, message: 'Failed to add movie due to a database error.' };
@@ -69,53 +80,56 @@ export async function addMovie(movieData: MovieCreateInput): Promise<z.infer<typ
   }
 }
 
-export async function getMovies(): Promise<MovieOutput[]> {
+export async function getMovies(options?: { includeDeleted?: boolean }): Promise<MovieOutput[]> {
   try {
     const now = Date.now();
-    if (moviesCache && (now - cacheTimestamp < CACHE_TTL)) {
-      return moviesCache;
+    const includeDeleted = options?.includeDeleted ?? false;
+
+    // Load and cache all movies (we do filtering in-memory to keep cache efficient)
+    if (!moviesCache || (now - cacheTimestamp >= CACHE_TTL)) {
+      const { db } = await connectToDatabase();
+      const moviesCollection = db.collection('movies');
+      
+      const moviesFromDB = await moviesCollection.find({}).sort({ releaseDate: -1 }).toArray();
+
+      // Filter out malformed movie documents (e.g. missing title field)
+      const validMoviesFromDB = moviesFromDB.filter(doc => doc && typeof doc.title === 'string' && doc.title.trim().length > 0);
+
+      moviesCache = validMoviesFromDB.map(movieDoc => {
+        const doc = movieDoc as any; 
+        return {
+          id: doc._id.toString(),
+          title: doc.title,
+          posterUrl: doc.posterUrl,
+          type: doc.type || 'movie',
+          backdropUrl: doc.backdropUrl === null ? undefined : doc.backdropUrl,
+          genres: Array.isArray(doc.genres) ? doc.genres : [], 
+          releaseDate: doc.releaseDate,
+          overview: doc.overview,
+          cast: Array.isArray(doc.cast) ? doc.cast.map((c: any) => ({
+            name: c.name,
+            character: c.character,
+            profileUrl: c.profileUrl === null ? undefined : c.profileUrl,
+            dataAiHint: c.dataAiHint
+          })) : [], 
+          director: doc.director,
+          trailerUrl: doc.trailerUrl === null ? undefined : doc.trailerUrl,
+          watchUrl: doc.watchUrl === null ? undefined : doc.watchUrl,
+          dataAiHint: doc.dataAiHint,
+          rating: typeof doc.rating === 'number' ? doc.rating : 0,
+          episodes: Array.isArray(doc.episodes) ? doc.episodes.map((ep: any) => ({ title: ep.title, downloadUrl: ep.downloadUrl, watchUrl: ep.watchUrl })) : undefined,
+          status: doc.status || (doc.watchUrl ? 'published' : 'draft'),
+          isFeatured: doc.isFeatured ?? false,
+          regions: doc.regions || ['Global'],
+          deletedAt: doc.deletedAt ? (doc.deletedAt instanceof Date ? doc.deletedAt.toISOString() : new Date(doc.deletedAt).toISOString()) : null,
+          deletedBy: doc.deletedBy || null,
+        };
+      });
+      cacheTimestamp = now;
     }
-
-    const { db } = await connectToDatabase();
-    const moviesCollection = db.collection('movies');
     
-    const moviesFromDB = await moviesCollection.find({}).sort({ releaseDate: -1 }).toArray();
-
-    // Filter out malformed movie documents (e.g. missing title field)
-    const validMoviesFromDB = moviesFromDB.filter(doc => doc && typeof doc.title === 'string' && doc.title.trim().length > 0);
-
-    const moviesForOutput: MovieOutput[] = validMoviesFromDB.map(movieDoc => {
-      const doc = movieDoc as any; 
-      return {
-        id: doc._id.toString(),
-        title: doc.title,
-        posterUrl: doc.posterUrl,
-        type: doc.type || 'movie',
-        backdropUrl: doc.backdropUrl === null ? undefined : doc.backdropUrl,
-        genres: Array.isArray(doc.genres) ? doc.genres : [], 
-        releaseDate: doc.releaseDate,
-        overview: doc.overview,
-        cast: Array.isArray(doc.cast) ? doc.cast.map((c: any) => ({
-          name: c.name,
-          character: c.character,
-          profileUrl: c.profileUrl === null ? undefined : c.profileUrl,
-          dataAiHint: c.dataAiHint
-        })) : [], 
-        director: doc.director,
-        trailerUrl: doc.trailerUrl === null ? undefined : doc.trailerUrl,
-        watchUrl: doc.watchUrl === null ? undefined : doc.watchUrl,
-        dataAiHint: doc.dataAiHint,
-        rating: typeof doc.rating === 'number' ? doc.rating : 0,
-        episodes: Array.isArray(doc.episodes) ? doc.episodes.map((ep: any) => ({ title: ep.title, downloadUrl: ep.downloadUrl, watchUrl: ep.watchUrl })) : undefined,
-        status: doc.status || (doc.watchUrl ? 'published' : 'draft'),
-        isFeatured: doc.isFeatured ?? false,
-        regions: doc.regions || ['Global'],
-      };
-    });
-    
-    moviesCache = moviesForOutput;
-    cacheTimestamp = now;
-    return moviesForOutput;
+    // Filter out deleted movies based on requested option
+    return moviesCache.filter(movie => includeDeleted ? !!movie.deletedAt : !movie.deletedAt);
 
   } catch (error: any) {
     console.error('Error fetching movies:', error);
@@ -164,6 +178,8 @@ export async function getMovieById(input: GetMovieByIdInput): Promise<MovieOutpu
       status: doc.status || (doc.watchUrl ? 'published' : 'draft'),
       isFeatured: doc.isFeatured ?? false,
       regions: doc.regions || ['Global'],
+      deletedAt: doc.deletedAt ? (doc.deletedAt instanceof Date ? doc.deletedAt.toISOString() : new Date(doc.deletedAt).toISOString()) : null,
+      deletedBy: doc.deletedBy || null,
     };
     
     return movieForOutput;
@@ -178,6 +194,7 @@ export async function updateMovie(input: UpdateMovieInput): Promise<UpdateMovieO
   const { movieId, ...updateData } = input;
   
   try {
+      await requirePermission('edit_content');
       if (!ObjectId.isValid(movieId)) {
           return { success: false, message: 'Invalid Movie ID format.' };
       }
@@ -220,8 +237,19 @@ export async function updateMovie(input: UpdateMovieInput): Promise<UpdateMovieO
               status: updatedMovieDoc.status || (updatedMovieDoc.watchUrl ? 'published' : 'draft'),
               isFeatured: updatedMovieDoc.isFeatured ?? false,
               regions: updatedMovieDoc.regions || ['Global'],
+              deletedAt: updatedMovieDoc.deletedAt ? (updatedMovieDoc.deletedAt instanceof Date ? updatedMovieDoc.deletedAt.toISOString() : new Date(updatedMovieDoc.deletedAt).toISOString()) : null,
+              deletedBy: updatedMovieDoc.deletedBy || null,
           };
+          
           invalidateMoviesCache();
+          
+          await logAuditEvent({
+            action: 'edit_content',
+            details: `Updated metadata for movie/series "${updatedMovieDoc.title}".`,
+            category: 'content',
+            severity: 'info'
+          });
+
           return { success: true, message: 'Movie updated successfully.', movie: updatedMovie };
       }
       return { success: false, message: 'Movie not found or failed to update.' };
@@ -238,19 +266,129 @@ export async function deleteMovie(input: DeleteMovieInput): Promise<DeleteMovieO
     if (!ObjectId.isValid(movieId)) {
       return { success: false, message: 'Invalid Movie ID format.' };
     }
+    
+    const caller = await requirePermission('delete_content');
     const { db } = await connectToDatabase();
     const moviesCollection = db.collection('movies');
     
-    const result = await moviesCollection.deleteOne({ _id: new ObjectId(movieId) });
+    const movie = await moviesCollection.findOne({ _id: new ObjectId(movieId) });
+    if (!movie) {
+      return { success: false, message: 'Movie not found.' };
+    }
+    
+    // Perform soft delete
+    const result = await moviesCollection.updateOne(
+      { _id: new ObjectId(movieId) },
+      { 
+        $set: { 
+          deletedAt: new Date(), 
+          deletedBy: caller.name || caller.email,
+          status: 'archived',
+          updatedAt: new Date()
+        } 
+      }
+    );
 
-    if (result.deletedCount === 1) {
+    if (result.modifiedCount === 1) {
       invalidateMoviesCache();
-      return { success: true, message: 'Movie deleted successfully.' };
+      
+      await logAuditEvent({
+        action: 'delete_content',
+        details: `Soft-deleted "${movie.title}" (moved to trash).`,
+        category: 'content',
+        severity: 'warning'
+      });
+      
+      return { success: true, message: 'Movie moved to trash.' };
     }
     return { success: false, message: 'Movie not found or already deleted.' };
 
   } catch (error: any) {
     console.error('Error deleting movie:', error);
     return { success: false, message: error.message || 'An unexpected error occurred while deleting the movie.' };
+  }
+}
+
+export async function restoreMovie(movieId: string): Promise<{ success: boolean; message: string }> {
+  try {
+    if (!ObjectId.isValid(movieId)) {
+      return { success: false, message: 'Invalid Movie ID format.' };
+    }
+    
+    const caller = await requirePermission('publish_content');
+    const { db } = await connectToDatabase();
+    const moviesCollection = db.collection('movies');
+    
+    const movie = await moviesCollection.findOne({ _id: new ObjectId(movieId) });
+    if (!movie) {
+      return { success: false, message: 'Movie not found.' };
+    }
+    
+    const result = await moviesCollection.updateOne(
+      { _id: new ObjectId(movieId) },
+      { 
+        $set: { 
+          status: 'published',
+          updatedAt: new Date()
+        },
+        $unset: {
+          deletedAt: "",
+          deletedBy: ""
+        }
+      }
+    );
+
+    if (result.modifiedCount === 1) {
+      invalidateMoviesCache();
+      
+      await logAuditEvent({
+        action: 'publish_content',
+        details: `Restored movie/series "${movie.title}" from trash bin.`,
+        category: 'content',
+        severity: 'info'
+      });
+      
+      return { success: true, message: 'Movie restored successfully.' };
+    }
+    return { success: false, message: 'Movie not found or failed to restore.' };
+  } catch (error: any) {
+    console.error('Error restoring movie:', error);
+    return { success: false, message: error.message || 'An unexpected error occurred while restoring the movie.' };
+  }
+}
+
+export async function deleteMoviePermanently(movieId: string): Promise<{ success: boolean; message: string }> {
+  try {
+    if (!ObjectId.isValid(movieId)) {
+      return { success: false, message: 'Invalid Movie ID format.' };
+    }
+    
+    const caller = await requirePermission('delete_content');
+    const { db } = await connectToDatabase();
+    const moviesCollection = db.collection('movies');
+    
+    const movie = await moviesCollection.findOne({ _id: new ObjectId(movieId) });
+    if (!movie) {
+      return { success: false, message: 'Movie not found.' };
+    }
+    
+    const result = await moviesCollection.deleteOne({ _id: new ObjectId(movieId) });
+
+    if (result.deletedCount === 1) {
+      invalidateMoviesCache();
+      
+      await logAuditEvent({
+        action: 'delete_content',
+        details: `Permanently deleted movie/series "${movie.title}" from the database.`,
+        category: 'content',
+        severity: 'critical'
+      });
+      
+      return { success: true, message: 'Movie permanently deleted.' };
+    }
+    return { success: false, message: 'Movie not found or already deleted.' };
+  } catch (error: any) {
+    console.error('Error permanently deleting movie:', error);
+    return { success: false, message: error.message || 'An unexpected error occurred.' };
   }
 }

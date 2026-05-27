@@ -5,6 +5,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { type UserProfile } from '@/types';
+import { cookies } from 'next/headers';
 
 const JWT_SECRET = "210eb87e922b9199cdfd62d166e553c025fbc57509a61e3a257384973fbf8286";
 
@@ -54,15 +55,19 @@ export async function registerUser(input: UserRegisterInput): Promise<UserRegist
 
     const hashedPassword = await bcryptjs.hash(input.password, 10);
 
-    const newUser: Omit<UserProfile, 'id' | '_id'> & { createdAt: Date; password: string } = {
+    const newUser = {
       name: input.name,
       email: input.email,
       password: hashedPassword as string,
       createdAt: new Date(),
+      updatedAt: new Date(),
       watchlist: [],
       reviews: [],
       ratingHistory: [],
-      role: 'user',
+      role: 'User',
+      hierarchyLevel: 0,
+      permissions: {},
+      roleAssignedBy: null,
       avatarUrl: `https://placehold.co/150x150.png?text=${input.name.charAt(0)}`,
       dataAiHint: 'placeholder avatar',
     };
@@ -107,13 +112,26 @@ export async function loginUser(input: UserLoginInput): Promise<UserLoginOutput>
     };
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '1h' });
 
+    // Set cookies for server-side auth checking & Next.js middleware routing
+    const cookieStore = await cookies();
+    cookieStore.set('authToken', token, {
+      httpOnly: false, // Make it readable by client check
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60, // 1 hour
+      path: '/',
+    });
+
+    const isUserAdmin = user.email === 'rbaskeydomi2018@gmail.com' || ['admin', 'Commander', 'Admin', 'Content Manager', 'Contributor'].includes(user.role);
+    const legacyRole = isUserAdmin ? 'admin' : 'user';
+    cookieStore.set('userRole', legacyRole, { path: '/' });
+
     return {
       success: true,
       message: 'Login successful!',
       userId: user._id.toString(),
       name: user.name,
       email: user.email,
-      role: user.role as 'user' | 'admin',
+      role: legacyRole as 'user' | 'admin',
       token: token,
       avatarUrl: user.avatarUrl,
     };

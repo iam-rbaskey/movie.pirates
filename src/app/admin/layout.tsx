@@ -110,6 +110,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { label: 'Search Analytics', href: '/admin/search-analytics', icon: Search, isActivePath: pathname === '/admin/search-analytics', isDisabled: false },
     { label: 'Users', href: '/admin/users', icon: Users, isActivePath: pathname === '/admin/users' || pathname.startsWith('/admin/users/'), isDisabled: false },
     { label: 'Roles & Permissions', href: '/admin/roles', icon: Contact, isActivePath: pathname === '/admin/roles', isDisabled: false },
+    { label: 'Audit Logs', href: '/admin/logs', icon: Terminal, isActivePath: pathname === '/admin/logs', isDisabled: false },
     { label: 'Settings', href: '/admin/settings', icon: Settings, isActivePath: pathname === '/admin/settings', isDisabled: false },
   ];
 

@@ -24,7 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 const userEditFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email." }),
-  role: z.enum(['user', 'admin']),
+  role: z.enum(['Commander', 'Admin', 'Content Manager', 'Contributor', 'User']),
   avatarUrl: z.string().url({ message: "Please enter a valid URL." }).or(z.literal('')).nullable(),
 });
 
@@ -70,7 +70,7 @@ export default function AdminUsersPage() {
     form.reset({
       name: user.name,
       email: user.email,
-      role: user.role,
+      role: user.role as any,
       avatarUrl: user.avatarUrl ?? '',
     });
     setIsFormOpen(true);
@@ -191,8 +191,8 @@ export default function AdminUsersPage() {
                       <TableCell className="font-medium">{user.name}</TableCell>
                       <TableCell className="hidden md:table-cell">{user.email}</TableCell>
                       <TableCell>
-                        <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                        <Badge variant={['Commander', 'Admin'].includes(user.role) ? 'default' : 'secondary'}>
+                          {user.role}
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell font-mono text-xs text-[#A1A1A1]">
@@ -279,8 +279,11 @@ export default function AdminUsersPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="user">User</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="Commander" disabled>Commander</SelectItem>
+                        <SelectItem value="Admin">Admin</SelectItem>
+                        <SelectItem value="Content Manager">Content Manager</SelectItem>
+                        <SelectItem value="Contributor">Contributor</SelectItem>
+                        <SelectItem value="User">User</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

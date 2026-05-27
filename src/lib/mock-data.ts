@@ -111,6 +111,8 @@ export const mockUserProfile: UserProfile = {
   watchlist: [mockMovies[0], mockMovies[2]],
   reviews: mockReviews.filter(r => r.userId === 'u1'),
   ratingHistory: [{movieId: '1', rating: 10}, {movieId: '3', rating: 8}],
-  role: 'user',
+  role: 'User',
+  hierarchyLevel: 0,
+  permissions: {},
   lastSeen: new Date().toISOString(),
 };
