@@ -13,9 +13,6 @@
 [functions]
   node_bundler = "esbuild"
 
-[functions."*"]
-  included_files = [".next/**"]
-
 [[headers]]
   for = "/api/*"
   [headers.values]
