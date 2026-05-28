@@ -1,0 +1,24 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Netlify Next.js plugin handles serverless function creation
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Increase function timeout for DB-heavy API routes (default is 10s, max 26s on free tier)
+[functions]
+  node_bundler = "esbuild"
+
+[functions."*"]
+  included_files = [".next/**"]
+
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
