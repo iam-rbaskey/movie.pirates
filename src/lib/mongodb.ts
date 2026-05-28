@@ -1,6 +1,6 @@
 import { MongoClient, type Db, type MongoClientOptions } from 'mongodb';
 
-const MONGODB_URI = "mongodb+srv://rbaskeyofficial:rbaskeyofficial@cluster0.lnstw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const MONGODB_URI = "mongodb://rbaskeyofficial:rbaskeyofficial@cluster0-shard-00-00.lnstw.mongodb.net:27017,cluster0-shard-00-01.lnstw.mongodb.net:27017,cluster0-shard-00-02.lnstw.mongodb.net:27017/movie1?ssl=true&replicaSet=atlas-90223m-shard-0&authSource=admin&retryWrites=true&w=majority";
 const MONGODB_DB_NAME = "movie1";
 
 // Module-level cache — persists across requests within the same serverless container instance.

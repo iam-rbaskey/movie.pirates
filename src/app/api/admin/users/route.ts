@@ -42,12 +42,10 @@ export async function GET(request: NextRequest) {
 
     // Resolve caller role
     const isCommander = userDoc.email === 'rbaskeydomi2018@gmail.com';
-    const resolvedLevel = isCommander
-      ? 100
-      : (userDoc.hierarchyLevel ?? (userDoc.role === 'admin' || userDoc.role === 'Admin' ? 80 : 0));
+    const resolvedRole = isCommander ? 'Commander' : (userDoc.role || 'User');
+    const isUserAdmin = isCommander || ['admin', 'Commander', 'Admin', 'Content Manager', 'Contributor'].includes(resolvedRole);
 
-    // Only Commander and Admin (level >= 80) can list users
-    if (!isCommander && resolvedLevel < 80) {
+    if (!isUserAdmin) {
       return NextResponse.json(
         { error: 'Forbidden: Insufficient permissions to list users.' },
         { status: 403 }

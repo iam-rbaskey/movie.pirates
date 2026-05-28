@@ -64,7 +64,8 @@ export type DeleteUserByAdminOutput = z.infer<typeof DeleteUserByAdminOutputSche
 export async function getUsers(): Promise<GetUsersOutput | { error: string }> {
   try {
     const caller = await verifyAuth();
-    if (!caller || (caller.role !== 'Commander' && caller.hierarchyLevel < 80)) {
+    const isUserAdmin = caller?.role === 'Commander' || ['admin', 'Commander', 'Admin', 'Content Manager', 'Contributor'].includes(caller?.role || '');
+    if (!caller || !isUserAdmin) {
       console.warn("Unauthorized user listing attempt by:", caller?.email);
       return [];
     }
@@ -114,8 +115,9 @@ export async function updateUserByAdmin(input: UpdateUserByAdminInput): Promise<
   const { userId, ...updateData } = input;
   try {
     const caller = await verifyAuth();
-    if (!caller || caller.role !== 'Commander') {
-      return { success: false, message: 'Unauthorized: Supreme Commander role required.' };
+    const isUserAdmin = caller?.role === 'Commander' || ['admin', 'Commander', 'Admin', 'Content Manager', 'Contributor'].includes(caller?.role || '');
+    if (!caller || !isUserAdmin) {
+      return { success: false, message: 'Unauthorized: Administrator privileges required.' };
     }
 
     if (!ObjectId.isValid(userId)) {
@@ -219,8 +221,9 @@ export async function deleteUserByAdmin(input: DeleteUserByAdminInput): Promise<
   const { userId } = input;
   try {
     const caller = await verifyAuth();
-    if (!caller || caller.role !== 'Commander') {
-      return { success: false, message: 'Unauthorized: Supreme Commander role required.' };
+    const isUserAdmin = caller?.role === 'Commander' || ['admin', 'Commander', 'Admin', 'Content Manager', 'Contributor'].includes(caller?.role || '');
+    if (!caller || !isUserAdmin) {
+      return { success: false, message: 'Unauthorized: Administrator privileges required.' };
     }
 
     if (!ObjectId.isValid(userId)) {

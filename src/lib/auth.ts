@@ -1,9 +1,10 @@
 import { cookies } from 'next/headers';
-import jwt from 'jsonwebtoken';
+import * as jose from 'jose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 const JWT_SECRET = "210eb87e922b9199cdfd62d166e553c025fbc57509a61e3a257384973fbf8286";
+const JWT_SECRET_BYTES = new TextEncoder().encode(JWT_SECRET);
 
 import { DEFAULT_PERMISSIONS, ROLE_HIERARCHY_LEVELS } from './auth-constants';
 
@@ -22,7 +23,9 @@ export async function verifyAuth(): Promise<AuthUser | null> {
     const token = cookieStore.get('authToken')?.value;
     if (!token) return null;
 
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string };
+    const { payload } = await jose.jwtVerify(token, JWT_SECRET_BYTES);
+    const decoded = { userId: payload.userId as string, email: payload.email as string };
+
     if (!decoded || !decoded.userId) return null;
 
     const { db } = await connectToDatabase();

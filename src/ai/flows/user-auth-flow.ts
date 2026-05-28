@@ -3,11 +3,12 @@
 import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import bcryptjs from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import * as jose from 'jose';
 import { type UserProfile } from '@/types';
 import { cookies } from 'next/headers';
 
 const JWT_SECRET = "210eb87e922b9199cdfd62d166e553c025fbc57509a61e3a257384973fbf8286";
+const JWT_SECRET_BYTES = new TextEncoder().encode(JWT_SECRET);
 
 // Schemas for Registration
 const UserRegisterInputSchema = z.object({
@@ -110,7 +111,10 @@ export async function loginUser(input: UserLoginInput): Promise<UserLoginOutput>
       name: user.name,
       role: user.role as 'user' | 'admin',
     };
-    const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '1h' });
+    const token = await new jose.SignJWT(tokenPayload)
+      .setProtectedHeader({ alg: 'HS256' })
+      .setExpirationTime('1h')
+      .sign(JWT_SECRET_BYTES);
 
     // Set cookies for server-side auth checking & Next.js middleware routing
     const cookieStore = await cookies();

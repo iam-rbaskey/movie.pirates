@@ -40,8 +40,9 @@ export async function logAuditEvent(input: AuditLogInput) {
 export async function getAuditLogs() {
   try {
     const caller = await verifyAuth();
-    if (!caller || caller.role !== 'Commander') {
-      throw new Error("Unauthorized: Access to logs is restricted to the Commander only.");
+    const isUserAdmin = caller?.role === 'Commander' || ['admin', 'Commander', 'Admin', 'Content Manager', 'Contributor'].includes(caller?.role || '');
+    if (!caller || !isUserAdmin) {
+      throw new Error("Unauthorized: Access to logs is restricted to administrators only.");
     }
 
     const { db } = await connectToDatabase();
