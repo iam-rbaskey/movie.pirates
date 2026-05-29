@@ -1,12 +1,10 @@
 'use server';
 
 import { z } from 'zod';
-import { connectToDatabase } from '@/lib/mongodb';
-import { type UserProfile as DBUserProfileType } from '@/types';
-import { ObjectId } from 'mongodb';
 import { verifyAuth } from '@/lib/auth';
 import { ROLE_HIERARCHY_LEVELS, DEFAULT_PERMISSIONS } from '@/lib/auth-constants';
 import { logAuditEvent } from './audit-log-flow';
+import { supabaseAdmin, mapUserFromDb } from '@/lib/supabase';
 
 // Schema for user data returned to admin panel (subset of UserProfile)
 const UserForAdminOutputSchema = z.object({
@@ -70,16 +68,15 @@ export async function getUsers(): Promise<GetUsersOutput | { error: string }> {
       return [];
     }
 
-    const { db } = await connectToDatabase();
-    const usersCollection = db.collection<Omit<DBUserProfileType, 'password'>>('users');
+    const { data: usersFromDb, error } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    const usersFromDb = await usersCollection
-      .find({}, { projection: { password: 0 } })
-      .sort({ createdAt: -1 })
-      .toArray();
+    if (error) throw error;
 
-    const usersForAdmin = usersFromDb.map(userDoc => {
-      const doc = userDoc as any;
+    const usersForAdmin = (usersFromDb || []).map(raw => {
+      const doc = mapUserFromDb(raw)!;
       const isCommanderEmail = doc.email === 'rbaskeydomi2018@gmail.com';
       const resolvedRole = isCommanderEmail ? 'Commander' : (doc.role || 'User');
       const resolvedLevel = isCommanderEmail ? 100 : (doc.hierarchyLevel ?? (doc.role === 'admin' ? 80 : 0));
@@ -88,7 +85,7 @@ export async function getUsers(): Promise<GetUsersOutput | { error: string }> {
       const resolvedPermissions = isCommanderEmail ? DEFAULT_PERMISSIONS['Commander'] : { ...defaultRolePerms, ...(doc.permissions || {}) };
 
       return {
-        id: doc._id.toString(),
+        id: doc.id,
         name: doc.name || 'N/A',
         email: doc.email || 'N/A',
         avatarUrl: doc.avatarUrl || null,
@@ -120,24 +117,27 @@ export async function updateUserByAdmin(input: UpdateUserByAdminInput): Promise<
       return { success: false, message: 'Unauthorized: Administrator privileges required.' };
     }
 
-    if (!ObjectId.isValid(userId)) {
+    if (!userId) {
       return { success: false, message: 'Invalid User ID format.' };
     }
 
-    const { db } = await connectToDatabase();
-    const usersCollection = db.collection<DBUserProfileType>('users');
+    const { data: rawTargetUser, error: fetchError } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
 
-    const targetUser = await usersCollection.findOne({ _id: new ObjectId(userId) as any });
-    if (!targetUser) {
+    if (fetchError || !rawTargetUser) {
       return { success: false, message: 'Target user not found.' };
     }
+    const targetUser = mapUserFromDb(rawTargetUser)!;
 
     // Enforce Commander protections
     if (targetUser.email === 'rbaskeydomi2018@gmail.com') {
       return { success: false, message: 'Access Denied: Commander hierarchy is fixed and protected.' };
     }
 
-    const targetHierarchy = (targetUser as any).hierarchyLevel ?? ((targetUser.role as string) === 'admin' || targetUser.role === 'Admin' ? 80 : 0);
+    const targetHierarchy = targetUser.hierarchyLevel ?? ((targetUser.role as string) === 'admin' || targetUser.role === 'Admin' ? 80 : 0);
     if (caller.role !== 'Commander' && caller.hierarchyLevel <= targetHierarchy) {
       return { success: false, message: 'Access Denied: Cannot modify a user with equal or higher hierarchy level.' };
     }
@@ -145,8 +145,8 @@ export async function updateUserByAdmin(input: UpdateUserByAdminInput): Promise<
     const updatePayload: any = {};
     if (updateData.name) updatePayload.name = updateData.name;
     if (updateData.email) updatePayload.email = updateData.email;
-    if (updateData.avatarUrl !== undefined) updatePayload.avatarUrl = updateData.avatarUrl ?? undefined;
-    if (updateData.customRole !== undefined) updatePayload.customRole = updateData.customRole;
+    if (updateData.avatarUrl !== undefined) updatePayload.avatar_url = updateData.avatarUrl ?? null;
+    if (updateData.customRole !== undefined) updatePayload.custom_role = updateData.customRole;
 
     // Role & Hierarchy checks
     if (updateData.role) {
@@ -161,55 +161,57 @@ export async function updateUserByAdmin(input: UpdateUserByAdminInput): Promise<
       }
 
       updatePayload.role = nextRole;
-      updatePayload.hierarchyLevel = nextLevel;
-      updatePayload.customRole = nextRole;
+      updatePayload.hierarchy_level = nextLevel;
+      updatePayload.custom_role = nextRole;
       updatePayload.permissions = DEFAULT_PERMISSIONS[nextRole] || {};
-      updatePayload.roleAssignedBy = caller.name;
+      updatePayload.role_assigned_by = caller.name;
     }
 
     if (updateData.permissions) {
-      const currentPermissions = (targetUser as any).permissions || {};
+      const currentPermissions = targetUser.permissions || {};
       const newPermissions = { ...currentPermissions, ...updateData.permissions };
       updatePayload.permissions = newPermissions;
     }
 
-    updatePayload.updatedAt = new Date();
+    updatePayload.updated_at = new Date().toISOString();
 
-    const result = await usersCollection.findOneAndUpdate(
-      { _id: new ObjectId(userId) as any },
-      { $set: updatePayload as any },
-      { returnDocument: 'after', projection: { password: 0 } }
-    );
+    const { data: rawUpdatedUser, error: updateError } = await supabaseAdmin
+      .from('users')
+      .update(updatePayload)
+      .eq('id', userId)
+      .select()
+      .maybeSingle();
 
-    if (result) {
-      const doc = result as any;
-      const updatedUser: UserForAdminOutput = {
-        id: doc._id.toString(),
-        name: doc.name || 'N/A',
-        email: doc.email || 'N/A',
-        avatarUrl: doc.avatarUrl || null,
-        role: doc.role || 'User',
-        createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : new Date(0).toISOString(),
-        dataAiHint: doc.dataAiHint || null,
-        customRole: doc.customRole || doc.role,
-        lastIp: doc.lastIp || null,
-        hierarchyLevel: doc.hierarchyLevel ?? 0,
-        permissions: doc.permissions || {},
-        roleAssignedBy: doc.roleAssignedBy || null,
-        updatedAt: doc.updatedAt ? new Date(doc.updatedAt).toISOString() : null,
-      };
-
-      // Log in Audit Trail
-      await logAuditEvent({
-        action: 'role assignment',
-        details: `Updated role/permissions of user ${doc.name} (${doc.email}) to role: ${doc.role}.`,
-        category: 'security',
-        severity: doc.role === 'Admin' ? 'warning' : 'info'
-      });
-
-      return { success: true, message: 'User updated successfully.', user: updatedUser };
+    if (updateError || !rawUpdatedUser) {
+      return { success: false, message: updateError?.message || 'User not found or failed to update.' };
     }
-    return { success: false, message: 'User not found or failed to update.' };
+    const doc = mapUserFromDb(rawUpdatedUser)!;
+
+    const updatedUser: UserForAdminOutput = {
+      id: doc.id,
+      name: doc.name || 'N/A',
+      email: doc.email || 'N/A',
+      avatarUrl: doc.avatarUrl || null,
+      role: doc.role || 'User',
+      createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : new Date(0).toISOString(),
+      dataAiHint: doc.dataAiHint || null,
+      customRole: doc.customRole || doc.role,
+      lastIp: doc.lastIp || null,
+      hierarchyLevel: doc.hierarchyLevel ?? 0,
+      permissions: doc.permissions || {},
+      roleAssignedBy: doc.roleAssignedBy || null,
+      updatedAt: doc.updatedAt ? new Date(doc.updatedAt).toISOString() : null,
+    };
+
+    // Log in Audit Trail
+    await logAuditEvent({
+      action: 'role assignment',
+      details: `Updated role/permissions of user ${doc.name} (${doc.email}) to role: ${doc.role}.`,
+      category: 'security',
+      severity: doc.role === 'Admin' ? 'warning' : 'info'
+    });
+
+    return { success: true, message: 'User updated successfully.', user: updatedUser };
 
   } catch (error: any) {
     console.error('Error updating user by admin:', error);
@@ -226,40 +228,47 @@ export async function deleteUserByAdmin(input: DeleteUserByAdminInput): Promise<
       return { success: false, message: 'Unauthorized: Administrator privileges required.' };
     }
 
-    if (!ObjectId.isValid(userId)) {
+    if (!userId) {
       return { success: false, message: 'Invalid User ID format.' };
     }
 
-    const { db } = await connectToDatabase();
-    const usersCollection = db.collection('users');
+    const { data: rawTargetUser, error: fetchError } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
 
-    const targetUser = await usersCollection.findOne({ _id: new ObjectId(userId) });
-    if (!targetUser) {
+    if (fetchError || !rawTargetUser) {
       return { success: false, message: 'Target user not found.' };
     }
+    const targetUser = mapUserFromDb(rawTargetUser)!;
 
     // Enforce Commander protections
     if (targetUser.email === 'rbaskeydomi2018@gmail.com') {
       return { success: false, message: 'Access Denied: Commander cannot be deleted.' };
     }
 
-    const targetHierarchy = (targetUser as any).hierarchyLevel ?? (targetUser.role === 'admin' ? 80 : 0);
+    const targetHierarchy = targetUser.hierarchyLevel ?? (targetUser.role === 'admin' ? 80 : 0);
     if (caller.role !== 'Commander' && caller.hierarchyLevel <= targetHierarchy) {
       return { success: false, message: 'Access Denied: Cannot delete a user with equal or higher hierarchy level.' };
     }
 
-    const result = await usersCollection.deleteOne({ _id: new ObjectId(userId) as any });
+    const { error: deleteError } = await supabaseAdmin
+      .from('users')
+      .delete()
+      .eq('id', userId);
 
-    if (result.deletedCount === 1) {
-      await logAuditEvent({
-        action: 'delete_users',
-        details: `Deleted user ${targetUser.name} (${targetUser.email}) from database.`,
-        category: 'security',
-        severity: 'warning'
-      });
-      return { success: true, message: 'User deleted successfully.' };
+    if (deleteError) {
+      return { success: false, message: deleteError.message };
     }
-    return { success: false, message: 'User not found or already deleted.' };
+
+    await logAuditEvent({
+      action: 'delete_users',
+      details: `Deleted user ${targetUser.name} (${targetUser.email}) from database.`,
+      category: 'security',
+      severity: 'warning'
+    });
+    return { success: true, message: 'User deleted successfully.' };
 
   } catch (error: any) {
     console.error('Error deleting user by admin:', error);

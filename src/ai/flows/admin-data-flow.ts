@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { formatDistanceToNow } from 'date-fns';
 import { verifyAuth } from '@/lib/auth';
+import { supabaseAdmin, mapUserFromDb } from '@/lib/supabase';
 
 const DashboardCountsSchema = z.object({
   totalUsers: z.number().describe("Total number of registered users."),
@@ -51,15 +52,22 @@ export async function getAdminDashboardData(): Promise<AdminDashboardDataOutput>
     const caller = await verifyAuth();
     const { db } = await connectToDatabase();
     
-    const usersCollection = db.collection('users');
     const moviesCollection = db.collection('movies');
     const reviewsCollection = db.collection('reviews');
-    const visitorsCollection = db.collection('visitors');
 
-    // Aggregate Counts
-    const totalUsers = await usersCollection.countDocuments();
+    // Aggregate Counts from Supabase (Users & Visitors)
+    const { count: totalUsers, error: usersCountError } = await supabaseAdmin
+      .from('users')
+      .select('*', { count: 'exact', head: true });
+    if (usersCountError) throw usersCountError;
+
+    const { count: totalVisitors, error: visitorsCountError } = await supabaseAdmin
+      .from('visitors')
+      .select('*', { count: 'exact', head: true });
+    if (visitorsCountError) throw visitorsCountError;
+
+    // Aggregate Counts from MongoDB (Movies & Reviews)
     const totalMovies = await moviesCollection.countDocuments();
-    const totalVisitors = await visitorsCollection.countDocuments();
     
     const moviesCount = await moviesCollection.countDocuments({
       $or: [
@@ -85,11 +93,14 @@ export async function getAdminDashboardData(): Promise<AdminDashboardDataOutput>
       console.warn("Could not count 'reviews' collection, it might not exist yet or an error occurred. Defaulting to 0.", e);
     }
     
-    // Fetch Recent Activity (last 5 combined)
-    const recentUsers = await usersCollection.find({})
-      .sort({ createdAt: -1 })
-      .limit(3) 
-      .toArray();
+    // Fetch Recent Activity (last 3 users from Supabase, last 3 movies from MongoDB)
+    const { data: recentUsersDb, error: recentUsersError } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(3);
+    if (recentUsersError) throw recentUsersError;
+    const recentUsers = (recentUsersDb || []).map(mapUserFromDb).filter(Boolean);
     
     const recentMovies = await moviesCollection.find({})
       .sort({ createdAt: -1 })
@@ -105,8 +116,9 @@ export async function getAdminDashboardData(): Promise<AdminDashboardDataOutput>
     }> = [];
 
     recentUsers.forEach(user => {
+      if (!user) return;
       combinedActivityInternal.push({
-        id: user._id.toString(),
+        id: user.id,
         type: 'New User',
         description: `${user.name || 'A user'} registered.`, 
         time: user.createdAt ? formatDistanceToNow(new Date(user.createdAt), { addSuffix: true }) : 'Unknown time',
@@ -134,28 +146,24 @@ export async function getAdminDashboardData(): Promise<AdminDashboardDataOutput>
       timestamp: act.timestamp.toISOString(),
     }));
 
-    // Monthly signups grouping (last 12 months)
+    // Monthly signups grouping (last 12 months) from Supabase
     const twelveMonthsAgo = new Date();
     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
     twelveMonthsAgo.setDate(1);
     twelveMonthsAgo.setHours(0,0,0,0);
 
-    const signups = await usersCollection.aggregate([
-      { $match: { createdAt: { $gte: twelveMonthsAgo } } },
-      { $group: {
-          _id: { 
-            year: { $year: "$createdAt" }, 
-            month: { $month: "$createdAt" } 
-          },
-          count: { $sum: 1 }
-        }
-      }
-    ]).toArray();
+    const { data: signupUsers, error: signupUsersError } = await supabaseAdmin
+      .from('users')
+      .select('created_at')
+      .gte('created_at', twelveMonthsAgo.toISOString());
+    if (signupUsersError) throw signupUsersError;
 
     const monthlySignupsMap = new Map<string, number>();
-    signups.forEach(s => {
-      const key = `${s._id.year}-${s._id.month.toString().padStart(2, '0')}`;
-      monthlySignupsMap.set(key, s.count);
+    (signupUsers || []).forEach(u => {
+      if (!u.created_at) return;
+      const d = new Date(u.created_at);
+      const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+      monthlySignupsMap.set(key, (monthlySignupsMap.get(key) || 0) + 1);
     });
 
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -171,28 +179,23 @@ export async function getAdminDashboardData(): Promise<AdminDashboardDataOutput>
       });
     }
 
-    // Daily visitors grouping (last 30 days)
+    // Daily visitors grouping (last 30 days) from Supabase
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
     thirtyDaysAgo.setHours(0,0,0,0);
 
-    const visitors = await visitorsCollection.aggregate([
-      { $match: { firstSeen: { $gte: thirtyDaysAgo } } },
-      { $group: {
-          _id: { 
-            year: { $year: "$firstSeen" }, 
-            month: { $month: "$firstSeen" },
-            day: { $dayOfMonth: "$firstSeen" }
-          },
-          count: { $sum: 1 }
-        }
-      }
-    ]).toArray();
+    const { data: visitorPings, error: visitorPingsError } = await supabaseAdmin
+      .from('visitors')
+      .select('created_at')
+      .gte('created_at', thirtyDaysAgo.toISOString());
+    if (visitorPingsError) throw visitorPingsError;
 
     const dailyVisitorsMap = new Map<string, number>();
-    visitors.forEach(v => {
-      const key = `${monthNames[v._id.month - 1]} ${v._id.day}`;
-      dailyVisitorsMap.set(key, v.count);
+    (visitorPings || []).forEach(v => {
+      if (!v.created_at) return;
+      const d = new Date(v.created_at);
+      const key = `${monthNames[d.getMonth()]} ${d.getDate()}`;
+      dailyVisitorsMap.set(key, (dailyVisitorsMap.get(key) || 0) + 1);
     });
 
     const dailyVisitors: { date: string, visitors: number }[] = [];
@@ -204,7 +207,15 @@ export async function getAdminDashboardData(): Promise<AdminDashboardDataOutput>
     }
 
     return {
-      counts: { totalUsers, totalMovies, totalReviews, totalVisitors, moviesCount, seriesCount, posterlessCount },
+      counts: { 
+        totalUsers: totalUsers || 0, 
+        totalMovies, 
+        totalReviews, 
+        totalVisitors: totalVisitors || 0, 
+        moviesCount, 
+        seriesCount, 
+        posterlessCount 
+      },
       recentActivity,
       monthlySignups,
       dailyVisitors,
@@ -216,7 +227,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardDataOutput>
     };
 
   } catch (e: any) {
-    console.error("Failed to fetch admin dashboard data from MongoDB:", e);
+    console.error("Failed to fetch admin dashboard data from Supabase/MongoDB:", e);
     const fallbackMonths: { name: string, users: number }[] = [];
     const fallbackDays: { date: string, visitors: number }[] = [];
     const monthNamesFallback = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

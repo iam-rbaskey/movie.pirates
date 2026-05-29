@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
 import * as jose from 'jose';
 import { DEFAULT_PERMISSIONS } from '@/lib/auth-constants';
+import { supabaseAdmin, mapUserFromDb } from '@/lib/supabase';
 
 const JWT_SECRET_BYTES = new TextEncoder().encode(
   "210eb87e922b9199cdfd62d166e553c025fbc57509a61e3a257384973fbf8286"
@@ -20,9 +19,14 @@ async function verifyTokenFromRequest(request: NextRequest) {
     const userId = payload.userId as string;
     if (!userId) return null;
 
-    const { db } = await connectToDatabase();
-    const userDoc = await db.collection('users').findOne({ _id: new ObjectId(userId) });
-    return userDoc;
+    const { data: userDoc, error } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error || !userDoc) return null;
+    return mapUserFromDb(userDoc);
   } catch (err) {
     console.error('[API /admin/users] token verification error:', err);
     return null;
@@ -52,14 +56,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { db } = await connectToDatabase();
-    const usersFromDb = await db
-      .collection('users')
-      .find({}, { projection: { password: 0 } })
-      .sort({ createdAt: -1 })
-      .toArray();
+    const { data: usersFromDb, error: fetchError } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    const usersForAdmin = usersFromDb.map((doc: any) => {
+    if (fetchError) throw fetchError;
+
+    const usersForAdmin = (usersFromDb || []).map(mapUserFromDb).filter(Boolean).map((doc: any) => {
       const isCmd = doc.email === 'rbaskeydomi2018@gmail.com';
       const role = isCmd ? 'Commander' : (doc.role || 'User');
       const level = isCmd ? 100 : (doc.hierarchyLevel ?? (doc.role === 'admin' || doc.role === 'Admin' ? 80 : 0));
@@ -69,19 +73,19 @@ export async function GET(request: NextRequest) {
         : { ...defaultPerms, ...(doc.permissions || {}) };
 
       return {
-        id: doc._id.toString(),
+        id: doc.id,
         name: doc.name || 'N/A',
         email: doc.email || 'N/A',
         avatarUrl: doc.avatarUrl || null,
         role,
-        createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : new Date(0).toISOString(),
+        createdAt: doc.createdAt || new Date(0).toISOString(),
         dataAiHint: doc.dataAiHint || null,
         customRole: doc.customRole || (role === 'User' ? 'Uploader' : role),
         lastIp: doc.lastIp || null,
         hierarchyLevel: level,
         permissions,
         roleAssignedBy: doc.roleAssignedBy || null,
-        updatedAt: doc.updatedAt ? new Date(doc.updatedAt).toISOString() : null,
+        updatedAt: doc.updatedAt || null,
       };
     });
 

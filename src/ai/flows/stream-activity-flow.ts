@@ -1,8 +1,9 @@
 'use server';
 
 import { z } from 'zod';
-import { connectToDatabase } from '@/lib/mongodb';
 import { headers } from 'next/headers';
+import crypto from 'crypto';
+import { supabaseAdmin } from '@/lib/supabase';
 
 async function getClientIp(): Promise<string> {
   try {
@@ -33,16 +34,24 @@ const LogStreamActivityInputSchema = z.object({
 
 export async function logStreamActivity(input: z.infer<typeof LogStreamActivityInputSchema>) {
   try {
-    const { db } = await connectToDatabase();
-    const streamCollection = db.collection('stream_activities');
     const ip = await getClientIp();
 
-    await streamCollection.insertOne({
-      ...input,
-      ip,
-      timestamp: new Date(),
-    });
+    const { error } = await supabaseAdmin
+      .from('stream_activities')
+      .insert({
+        id: crypto.randomBytes(12).toString('hex'),
+        movie_id: input.movieId,
+        movie_title: input.movieTitle,
+        movie_type: input.movieType,
+        action: input.action,
+        device: input.device,
+        visitor_id: input.visitorId,
+        user_id: input.userId || null,
+        ip,
+        timestamp: new Date().toISOString(),
+      });
 
+    if (error) throw error;
     return { success: true };
   } catch (error) {
     console.error('Failed to log stream activity:', error);
@@ -52,10 +61,6 @@ export async function logStreamActivity(input: z.infer<typeof LogStreamActivityI
 
 export async function getStreamAnalytics() {
   try {
-    const { db } = await connectToDatabase();
-    const streamCollection = db.collection('stream_activities');
-    const usersCollection = db.collection('users');
-
     const now = new Date();
     const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
     const oneMinuteAgo = new Date(now.getTime() - 60 * 1000);
@@ -63,12 +68,17 @@ export async function getStreamAnalytics() {
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     // 1. Active Viewers (unique visitors or users active in the last 5 minutes)
-    const activeStreamVisitors = await streamCollection.distinct('visitorId', {
-      timestamp: { $gte: fiveMinutesAgo }
-    });
-    const activeUsersList = await usersCollection.distinct('_id', {
-      lastSeen: { $gte: fiveMinutesAgo }
-    });
+    const { data: visitors } = await supabaseAdmin
+      .from('stream_activities')
+      .select('visitor_id')
+      .gte('timestamp', fiveMinutesAgo.toISOString());
+    const activeStreamVisitors = Array.from(new Set((visitors || []).map(v => v.visitor_id)));
+
+    const { data: users } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .gte('last_seen', fiveMinutesAgo.toISOString());
+    const activeUsersList = (users || []).map(u => u.id);
     
     const activeViewersCount = Math.max(
       activeStreamVisitors.length,
@@ -77,141 +87,138 @@ export async function getStreamAnalytics() {
     );
 
     // 2. Concurrent Streams (unique movies with activity in the last 1 minute)
-    const concurrentStreamsCount = (await streamCollection.distinct('movieId', {
-      timestamp: { $gte: oneMinuteAgo },
-      action: { $in: ['play', 'heartbeat'] }
-    })).length;
+    const { data: streams } = await supabaseAdmin
+      .from('stream_activities')
+      .select('movie_id')
+      .gte('timestamp', oneMinuteAgo.toISOString())
+      .in('action', ['play', 'heartbeat']);
+    const concurrentStreamsCount = new Set((streams || []).map(s => s.movie_id).filter(Boolean)).size;
 
     // 3. Most Watched Content (top movie by pings/plays in the last 7 days)
-    const mostWatchedAgg = await streamCollection.aggregate([
-      { $match: { timestamp: { $gte: sevenDaysAgo }, action: { $in: ['play', 'heartbeat'] } } },
-      { $group: { _id: '$movieId', title: { $first: '$movieTitle' }, count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 1 }
-    ]).toArray();
+    const { data: recentPlays } = await supabaseAdmin
+      .from('stream_activities')
+      .select('movie_id, movie_title')
+      .gte('timestamp', sevenDaysAgo.toISOString())
+      .in('action', ['play', 'heartbeat']);
 
-    const mostWatchedTitle = mostWatchedAgg.length > 0 ? mostWatchedAgg[0].title : "None";
-    const mostWatchedPlays = mostWatchedAgg.length > 0 ? mostWatchedAgg[0].count : 0;
+    const moviePlayCounts = new Map<string, { title: string, count: number }>();
+    (recentPlays || []).forEach(rp => {
+      if (!rp.movie_id) return;
+      const current = moviePlayCounts.get(rp.movie_id) || { title: rp.movie_title || 'Unknown', count: 0 };
+      current.count++;
+      moviePlayCounts.set(rp.movie_id, current);
+    });
+    let mostWatchedTitle = 'None';
+    let mostWatchedPlays = 0;
+    moviePlayCounts.forEach((val) => {
+      if (val.count > mostWatchedPlays) {
+        mostWatchedPlays = val.count;
+        mostWatchedTitle = val.title;
+      }
+    });
 
     // 4. Peak Traffic (max requests/pings in any 1-hour interval in the last 24h)
-    const peakTrafficAgg = await streamCollection.aggregate([
-      { $match: { timestamp: { $gte: twentyFourHoursAgo } } },
-      {
-        $group: {
-          _id: {
-            year: { $year: "$timestamp" },
-            month: { $month: "$timestamp" },
-            day: { $dayOfMonth: "$timestamp" },
-            hour: { $hour: "$timestamp" }
-          },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { count: -1 } },
-      { $limit: 1 }
-    ]).toArray();
-    const peakReqsPerSecond = peakTrafficAgg.length > 0 
-      ? parseFloat((peakTrafficAgg[0].count / 3600).toFixed(2)) 
-      : 0;
+    const { data: last24hPings } = await supabaseAdmin
+      .from('stream_activities')
+      .select('timestamp')
+      .gte('timestamp', twentyFourHoursAgo.toISOString());
+
+    const hourlyCounts = new Map<number, number>();
+    (last24hPings || []).forEach(p => {
+      const hour = new Date(p.timestamp).getHours();
+      hourlyCounts.set(hour, (hourlyCounts.get(hour) || 0) + 1);
+    });
+    let maxCount = 0;
+    hourlyCounts.forEach(c => {
+      if (c > maxCount) maxCount = c;
+    });
+    const peakReqsPerSecond = parseFloat((maxCount / 3600).toFixed(2));
 
     // 5. Daily Watch Time (sum of all pings * 10 seconds in last 24 hours)
-    const dailyHeartbeats = await streamCollection.countDocuments({
-      timestamp: { $gte: twentyFourHoursAgo },
-      action: 'heartbeat'
-    });
-    const dailyWatchTimeHours = parseFloat(((dailyHeartbeats * 10) / 3600).toFixed(2));
+    const { count: dailyHeartbeats } = await supabaseAdmin
+      .from('stream_activities')
+      .select('*', { count: 'exact', head: true })
+      .gte('timestamp', twentyFourHoursAgo.toISOString())
+      .eq('action', 'heartbeat');
+    const dailyWatchTimeHours = parseFloat((((dailyHeartbeats || 0) * 10) / 3600).toFixed(2));
 
     // 6. Buffering Rate
-    const bufferCount = await streamCollection.countDocuments({
-      timestamp: { $gte: twentyFourHoursAgo },
-      action: 'buffer'
-    });
-    const totalPlayActions = await streamCollection.countDocuments({
-      timestamp: { $gte: twentyFourHoursAgo },
-      action: { $in: ['play', 'heartbeat', 'buffer'] }
-    });
-    const bufferingRatePercent = totalPlayActions > 0 
-      ? parseFloat(((bufferCount / totalPlayActions) * 100).toFixed(2)) 
+    const { count: bufferCount } = await supabaseAdmin
+      .from('stream_activities')
+      .select('*', { count: 'exact', head: true })
+      .gte('timestamp', twentyFourHoursAgo.toISOString())
+      .eq('action', 'buffer');
+
+    const { count: totalPlayActions } = await supabaseAdmin
+      .from('stream_activities')
+      .select('*', { count: 'exact', head: true })
+      .gte('timestamp', twentyFourHoursAgo.toISOString())
+      .in('action', ['play', 'heartbeat', 'buffer']);
+
+    const bufferingRatePercent = (totalPlayActions || 0) > 0 
+      ? parseFloat((((bufferCount || 0) / (totalPlayActions || 0)) * 100).toFixed(2)) 
       : 0;
 
     // 7. Failed Streams
-    const failedStreamsCount = await streamCollection.countDocuments({
-      timestamp: { $gte: twentyFourHoursAgo },
-      action: 'fail'
-    });
+    const { count: failedStreamsCount } = await supabaseAdmin
+      .from('stream_activities')
+      .select('*', { count: 'exact', head: true })
+      .gte('timestamp', twentyFourHoursAgo.toISOString())
+      .eq('action', 'fail');
 
     // 8. Device Distribution
-    const deviceAgg = await streamCollection.aggregate([
-      { $match: { timestamp: { $gte: sevenDaysAgo } } },
-      { $group: { _id: '$device', count: { $sum: 1 } } }
-    ]).toArray();
+    const { data: deviceLogs } = await supabaseAdmin
+      .from('stream_activities')
+      .select('device')
+      .gte('timestamp', sevenDaysAgo.toISOString());
 
-    const totalDeviceLogs = deviceAgg.reduce((acc, curr) => acc + curr.count, 0);
+    const deviceCounts = { mobile: 0, desktop: 0, tablet: 0 };
+    (deviceLogs || []).forEach(d => {
+      const dev = d.device as 'mobile' | 'desktop' | 'tablet';
+      if (dev in deviceCounts) {
+        deviceCounts[dev]++;
+      }
+    });
+    const totalDeviceLogs = (deviceLogs || []).length;
     const devicePercentages = { mobile: 0, desktop: 0, tablet: 0 };
     if (totalDeviceLogs > 0) {
-      deviceAgg.forEach(d => {
-        const dev = d._id as 'mobile' | 'desktop' | 'tablet';
-        if (dev in devicePercentages) {
-          devicePercentages[dev] = Math.round((d.count / totalDeviceLogs) * 100);
-        }
-      });
+      devicePercentages.mobile = Math.round((deviceCounts.mobile / totalDeviceLogs) * 100);
+      devicePercentages.desktop = Math.round((deviceCounts.desktop / totalDeviceLogs) * 100);
+      devicePercentages.tablet = Math.round((deviceCounts.tablet / totalDeviceLogs) * 100);
     }
 
     // 9. Viewer Activity Curve (by hour for the last 24 hours)
-    const hourlyActivityData: { time: string, users: number }[] = [];
-    const hourlyAgg = await streamCollection.aggregate([
-      { $match: { timestamp: { $gte: twentyFourHoursAgo } } },
-      {
-        $group: {
-          _id: { hour: { $hour: '$timestamp' } },
-          users: { $addToSet: '$visitorId' }
-        }
-      },
-      { $project: { hour: '$_id.hour', count: { $size: '$users' } } },
-      { $sort: { hour: 1 } }
-    ]).toArray();
+    const { data: activeHourlyLogs } = await supabaseAdmin
+      .from('stream_activities')
+      .select('timestamp, visitor_id')
+      .gte('timestamp', twentyFourHoursAgo.toISOString());
 
-    // Initialize 24 hours with 0
-    const hourMap = new Map<number, number>();
+    const hourlyVisitorMap = new Map<number, Set<string>>();
     for (let i = 0; i < 24; i++) {
-      hourMap.set(i, 0);
+      hourlyVisitorMap.set(i, new Set());
     }
-    hourlyAgg.forEach(h => {
-      hourMap.set(h.hour, h.count);
+    (activeHourlyLogs || []).forEach(log => {
+      const hour = new Date(log.timestamp).getHours();
+      hourlyVisitorMap.get(hour)?.add(log.visitor_id);
     });
 
+    const hourlyActivityData: { time: string, users: number }[] = [];
     const currentHour = now.getHours();
     for (let i = 23; i >= 0; i--) {
       const targetHour = (currentHour - i + 24) % 24;
       const displayTime = `${targetHour.toString().padStart(2, '0')}:00`;
       hourlyActivityData.push({
         time: displayTime,
-        users: hourMap.get(targetHour) || 0
+        users: hourlyVisitorMap.get(targetHour)?.size || 0
       });
     }
 
     // 10. Weekly watch time accumulation (last 7 days)
-    const weeklyWatchTimeData: { day: string, hours: number }[] = [];
-    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const dailyWatchAgg = await streamCollection.aggregate([
-      {
-        $match: {
-          timestamp: { $gte: sevenDaysAgo },
-          action: 'heartbeat'
-        }
-      },
-      {
-        $group: {
-          _id: {
-            year: { $year: '$timestamp' },
-            month: { $month: '$timestamp' },
-            day: { $dayOfMonth: '$timestamp' }
-          },
-          pings: { $sum: 1 }
-        }
-      },
-      { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } }
-    ]).toArray();
+    const { data: weeklyLogs } = await supabaseAdmin
+      .from('stream_activities')
+      .select('timestamp')
+      .gte('timestamp', sevenDaysAgo.toISOString())
+      .eq('action', 'heartbeat');
 
     const dailyWatchMap = new Map<string, number>();
     for (let i = 6; i >= 0; i--) {
@@ -220,53 +227,54 @@ export async function getStreamAnalytics() {
       const dateStr = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
       dailyWatchMap.set(dateStr, 0);
     }
-
-    dailyWatchAgg.forEach(dw => {
-      const dateStr = `${dw._id.year}-${dw._id.month}-${dw._id.day}`;
+    (weeklyLogs || []).forEach(log => {
+      const date = new Date(log.timestamp);
+      const dateStr = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
       if (dailyWatchMap.has(dateStr)) {
-        dailyWatchMap.set(dateStr, parseFloat(((dw.pings * 10) / 3600).toFixed(2)));
+        dailyWatchMap.set(dateStr, (dailyWatchMap.get(dateStr) || 0) + 1);
       }
     });
 
+    const weeklyWatchTimeData: { day: string, hours: number }[] = [];
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const dateStr = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
       const dayName = daysOfWeek[d.getDay()];
+      const pings = dailyWatchMap.get(dateStr) || 0;
       weeklyWatchTimeData.push({
         day: dayName,
-        hours: dailyWatchMap.get(dateStr) || 0
+        hours: parseFloat(((pings * 10) / 3600).toFixed(2))
       });
     }
 
     // 11. Recent Active IP Addresses (last 10 unique active IPs)
-    const recentIpsAgg = await streamCollection.aggregate([
-      { $sort: { timestamp: -1 } },
-      {
-        $group: {
-          _id: '$ip',
-          lastActive: { $first: '$timestamp' },
-          userId: { $first: '$userId' },
-          visitorId: { $first: '$visitorId' },
-          device: { $first: '$device' },
-          movieTitle: { $first: '$movieTitle' },
-          action: { $first: '$action' },
-          requestCount: { $sum: 1 }
-        }
-      },
-      { $sort: { lastActive: -1 } },
-      { $limit: 10 }
-    ]).toArray();
+    const { data: recentLogs, error: recentError } = await supabaseAdmin
+      .from('stream_activities')
+      .select('*')
+      .order('timestamp', { ascending: false });
 
-    const recentIps = recentIpsAgg.map(item => ({
-      ip: item._id || '127.0.0.1',
-      lastActive: item.lastActive.toISOString(),
-      userId: item.userId || null,
-      visitorId: item.visitorId || 'anonymous',
-      device: item.device || 'desktop',
-      lastAction: `${item.action} (${item.movieTitle})`,
-      requestCount: item.requestCount
-    }));
+    if (recentError) throw recentError;
+
+    const recentIpsMap = new Map<string, any>();
+    (recentLogs || []).forEach(log => {
+      const ip = log.ip || '127.0.0.1';
+      if (!recentIpsMap.has(ip)) {
+        recentIpsMap.set(ip, {
+          ip,
+          lastActive: new Date(log.timestamp).toISOString(),
+          userId: log.user_id || null,
+          visitorId: log.visitor_id || 'anonymous',
+          device: log.device || 'desktop',
+          lastAction: `${log.action} (${log.movie_title || 'Unknown'})`,
+          requestCount: 0
+        });
+      }
+      recentIpsMap.get(ip).requestCount++;
+    });
+
+    const recentIps = Array.from(recentIpsMap.values()).slice(0, 10);
 
     return {
       activeViewers: activeViewersCount,
@@ -276,7 +284,7 @@ export async function getStreamAnalytics() {
       peakTraffic: peakReqsPerSecond,
       dailyWatchTime: dailyWatchTimeHours,
       bufferingRate: bufferingRatePercent,
-      failedStreams: failedStreamsCount,
+      failedStreams: failedStreamsCount || 0,
       deviceDistribution: devicePercentages,
       viewerActivityCurve: hourlyActivityData,
       weeklyWatchTime: weeklyWatchTimeData,
