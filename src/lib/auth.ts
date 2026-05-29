@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import * as jose from 'jose';
-import { supabaseAdmin, mapUserFromDb } from './supabase';
+import { connectToDatabase } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 const JWT_SECRET = "210eb87e922b9199cdfd62d166e553c025fbc57509a61e3a257384973fbf8286";
 const JWT_SECRET_BYTES = new TextEncoder().encode(JWT_SECRET);
@@ -27,21 +28,14 @@ export async function verifyAuth(): Promise<AuthUser | null> {
 
     if (!decoded || !decoded.userId) return null;
 
-    const { data: rawUserDoc, error } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('id', decoded.userId)
-      .maybeSingle();
-
-    if (error || !rawUserDoc) return null;
-
-    const userDoc = mapUserFromDb(rawUserDoc);
+    const { db } = await connectToDatabase();
+    const userDoc = await db.collection('users').findOne({ _id: new ObjectId(decoded.userId) });
     if (!userDoc) return null;
 
     // Enforce Commander dynamic logic for fixed email
     if (userDoc.email === 'rbaskeydomi2018@gmail.com') {
       return {
-        userId: userDoc.id,
+        userId: userDoc._id.toString(),
         name: userDoc.name,
         email: userDoc.email,
         role: 'Commander',
@@ -77,7 +71,7 @@ export async function verifyAuth(): Promise<AuthUser | null> {
     const permissions = { ...defaultRolePerms, ...dbPermissions };
 
     return {
-      userId: userDoc.id,
+      userId: userDoc._id.toString(),
       name: userDoc.name,
       email: userDoc.email,
       role,

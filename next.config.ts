@@ -88,12 +88,6 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
-      {
-        protocol: 'https',
-        hostname: 'assets-in.bmscdn.com',
-        port: '',
-        pathname: '/**',
-      },
     ],
   },
   webpack: (config, { isServer, webpack }) => { // `webpack` instance is available in options

@@ -1,9 +1,8 @@
 'use server';
 
 import { z } from 'zod';
+import { connectToDatabase } from '@/lib/mongodb';
 import { headers } from 'next/headers';
-import crypto from 'crypto';
-import { supabaseAdmin } from '@/lib/supabase';
 
 const TrackVisitorInputSchema = z.object({
   visitorId: z.string().min(1, "Visitor ID is required"),
@@ -30,38 +29,29 @@ async function getClientIp(): Promise<string> {
 export async function trackAnonymousVisitor(input: TrackVisitorInput): Promise<{ success: boolean }> {
   const { visitorId } = input;
   try {
+    const { db } = await connectToDatabase();
+    const visitorsCollection = db.collection('visitors');
     const ip = await getClientIp();
 
     // Check if visitor already exists to avoid duplicate entries
-    const { data: existingVisitor, error: fetchError } = await supabaseAdmin
-      .from('visitors')
-      .select('*')
-      .eq('visitor_id', visitorId)
-      .maybeSingle();
+    const existingVisitor = await visitorsCollection.findOne({ visitorId });
 
     if (existingVisitor) {
-      await supabaseAdmin
-        .from('visitors')
-        .update({
-          last_seen: new Date().toISOString(),
-          ip,
-        })
-        .eq('visitor_id', visitorId);
+      await visitorsCollection.updateOne(
+        { visitorId },
+        { $set: { lastSeen: new Date(), ip } }
+      );
       return { success: true };
     }
     
     // Insert new visitor
-    const { error: insertError } = await supabaseAdmin
-      .from('visitors')
-      .insert({
-        id: crypto.randomBytes(12).toString('hex'),
-        visitor_id: visitorId,
-        ip,
-        created_at: new Date().toISOString(),
-        last_seen: new Date().toISOString(),
-      });
+    await visitorsCollection.insertOne({
+      visitorId,
+      ip,
+      createdAt: new Date(),
+      lastSeen: new Date(),
+    });
 
-    if (insertError) throw insertError;
     return { success: true };
   } catch (error) {
     console.error('Error tracking anonymous visitor:', error);
