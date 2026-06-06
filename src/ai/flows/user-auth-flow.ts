@@ -119,7 +119,7 @@ export async function loginUser(input: UserLoginInput): Promise<UserLoginOutput>
     // Set cookies for server-side auth checking & Next.js middleware routing
     const cookieStore = await cookies();
     cookieStore.set('authToken', token, {
-      httpOnly: false, // Make it readable by client check
+      httpOnly: true, // Secure against XSS token exfiltration
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60, // 1 hour
       path: '/',
@@ -127,7 +127,10 @@ export async function loginUser(input: UserLoginInput): Promise<UserLoginOutput>
 
     const isUserAdmin = user.email === 'rbaskeydomi2018@gmail.com' || ['admin', 'Commander', 'Admin', 'Content Manager', 'Contributor'].includes(user.role);
     const legacyRole = isUserAdmin ? 'admin' : 'user';
-    cookieStore.set('userRole', legacyRole, { path: '/' });
+    cookieStore.set('userRole', legacyRole, { 
+      path: '/',
+      httpOnly: false // Allow client check for layouts, but token remains protected
+    });
 
     return {
       success: true,
@@ -143,5 +146,17 @@ export async function loginUser(input: UserLoginInput): Promise<UserLoginOutput>
   } catch (error: any) {
     console.error('Login error:', error);
     return { success: false, message: error.message || 'An unexpected error occurred during login.' };
+  }
+}
+
+export async function logoutUser(): Promise<{ success: boolean; message: string }> {
+  try {
+    const cookieStore = await cookies();
+    cookieStore.delete('authToken');
+    cookieStore.delete('userRole');
+    return { success: true, message: 'Cookies cleared successfully.' };
+  } catch (error: any) {
+    console.error('Logout error:', error);
+    return { success: false, message: 'Failed to clear cookies on server.' };
   }
 }

@@ -118,7 +118,18 @@ export default function Header() {
     trackVisitor();
   }, [isClient, isLoggedIn, visitorTracked]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const { logoutUser } = await import('@/ai/flows/user-auth-flow');
+      await logoutUser();
+    } catch (err) {
+      console.error('Failed to logout via server action:', err);
+    }
+    
+    // Fallback manual cookie clear in browser just in case
+    document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+    document.cookie = 'userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+
     localStorage.clear();
     setIsLoggedIn(false);
     setUserName(null);

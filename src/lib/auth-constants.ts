@@ -3,13 +3,15 @@ export const DEFAULT_PERMISSIONS: Record<string, Record<string, boolean>> = {
     "create_content": true, "edit_content": true, "delete_content": true, "publish_content": true, "archive_content": true, "manage_categories": true, "manage_media": true,
     "view_users": true, "ban_users": true, "delete_users": true, "assign_roles": true, "edit_permissions": true,
     "view_analytics": true, "export_analytics": true, "view_logs": true,
-    "manage_settings": true, "manage_streaming": true, "manage_storage": true, "manage_mirrors": true, "manage_platform": true
+    "manage_settings": true, "manage_streaming": true, "manage_storage": true, "manage_mirrors": true, "manage_platform": true,
+    "view_settings": true
   },
   "Admin": {
     "create_content": true, "edit_content": true, "delete_content": true, "publish_content": true, "archive_content": true, "manage_categories": true, "manage_media": true,
     "view_users": true, "ban_users": true, "delete_users": true, "assign_roles": true, "edit_permissions": true,
     "view_analytics": true, "export_analytics": true, "view_logs": true,
-    "manage_settings": true, "manage_streaming": true, "manage_storage": true, "manage_mirrors": true, "manage_platform": true
+    "manage_settings": true, "manage_streaming": true, "manage_storage": true, "manage_mirrors": true, "manage_platform": true,
+    "view_settings": true
   },
   "Content Manager": {
     "create_content": true, "edit_content": true, "delete_content": false, "publish_content": true, "archive_content": true, "manage_categories": true, "manage_media": true,

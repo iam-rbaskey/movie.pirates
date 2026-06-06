@@ -11,6 +11,8 @@ import {
   type SuggestionOutput,
 } from '@/ai/schemas/suggestion-schemas';
 
+import { verifyAuth } from '@/lib/auth';
+
 export type { SuggestionOutput, AddSuggestionInput };
 
 export async function getSuggestions(): Promise<SuggestionOutput[]> {
@@ -37,8 +39,14 @@ export async function getSuggestions(): Promise<SuggestionOutput[]> {
 }
 
 export async function addSuggestion(input: AddSuggestionInput): Promise<z.infer<typeof AddSuggestionOutputSchema>> {
-  const { text, userId } = input;
+  const { text } = input;
   try {
+    const caller = await verifyAuth();
+    if (!caller) {
+      return { success: false, message: "Unauthorized: Active session required." };
+    }
+
+    const userId = caller.userId;
     if (!ObjectId.isValid(userId)) {
       return { success: false, message: "Invalid user ID." };
     }

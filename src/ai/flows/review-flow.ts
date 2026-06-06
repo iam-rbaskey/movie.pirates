@@ -18,16 +18,24 @@ import {
   type DeleteReviewOutput
 } from '@/ai/schemas/review-schemas';
 
+import { verifyAuth } from '@/lib/auth';
+
 export type { ReviewOutput };
 
 export async function addReview(input: AddReviewInput): Promise<AddReviewOutput> {
   try {
+    const caller = await verifyAuth();
+    if (!caller) {
+      return { success: false, message: 'Unauthorized: Active session required.' };
+    }
+
     const { db } = await connectToDatabase();
     const reviewsCollection = db.collection('reviews');
     const moviesCollection = db.collection('movies');
     const usersCollection = db.collection('users');
 
-    const { movieId, userId, userName, userAvatarUrl, rating, comment } = input;
+    const { movieId, rating, comment } = input;
+    const userId = caller.userId;
 
     if (!ObjectId.isValid(movieId) || !ObjectId.isValid(userId)) {
       return { success: false, message: 'Invalid movie or user ID.' };
@@ -45,12 +53,15 @@ export async function addReview(input: AddReviewInput): Promise<AddReviewOutput>
       return { success: false, message: 'User not found.' };
     }
 
+    const userName = user.name;
+    const userAvatarUrl = user.avatarUrl || null;
+
     // Create review document
     const reviewDoc = {
       movieId,
       userId: new ObjectId(userId),
       userName,
-      userAvatarUrl: userAvatarUrl || null,
+      userAvatarUrl,
       rating,
       comment,
       createdAt: new Date(),
@@ -65,7 +76,7 @@ export async function addReview(input: AddReviewInput): Promise<AddReviewOutput>
       movieId,
       userId,
       userName,
-      userAvatarUrl: userAvatarUrl || null,
+      userAvatarUrl,
       rating,
       comment,
       createdAt: reviewDoc.createdAt.toISOString(),
@@ -83,7 +94,7 @@ export async function addReview(input: AddReviewInput): Promise<AddReviewOutput>
             movieId,
             userId,
             userName,
-            userAvatarUrl: userAvatarUrl || null,
+            userAvatarUrl,
             rating,
             comment,
             createdAt: reviewDoc.createdAt.toISOString(),
@@ -121,6 +132,11 @@ export async function addReview(input: AddReviewInput): Promise<AddReviewOutput>
 export async function deleteReview(input: DeleteReviewInput): Promise<DeleteReviewOutput> {
   const { reviewId } = input;
   try {
+    const caller = await verifyAuth();
+    if (!caller) {
+      return { success: false, message: 'Unauthorized: Active session required.' };
+    }
+
     if (!ObjectId.isValid(reviewId)) {
       return { success: false, message: 'Invalid review ID format.' };
     }
@@ -137,6 +153,13 @@ export async function deleteReview(input: DeleteReviewInput): Promise<DeleteRevi
     }
 
     const { movieId, userId } = review;
+
+    // Ensure caller is owner or admin
+    const isOwner = userId.toString() === caller.userId;
+    const isAdmin = ['admin', 'Commander', 'Admin'].includes(caller.role);
+    if (!isOwner && !isAdmin) {
+      return { success: false, message: 'Forbidden: You cannot delete another user\'s review.' };
+    }
 
     // Delete from reviews collection
     const deleteResult = await reviewsCollection.deleteOne({ _id: new ObjectId(reviewId) });

@@ -94,6 +94,18 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'imgshare.info',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'posters.movieposterdb.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
   webpack: (config, { isServer, webpack }) => { // `webpack` instance is available in options

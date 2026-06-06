@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { headers } from 'next/headers';
 
+import { verifyAuth, requirePermission } from '@/lib/auth';
+
 async function getClientIp(): Promise<string> {
   try {
     const headerList = await headers();
@@ -52,6 +54,8 @@ export async function logStreamActivity(input: z.infer<typeof LogStreamActivityI
 
 export async function getStreamAnalytics() {
   try {
+    // Assert view_analytics permission (Bypassed for Commander, checks permissions mapping for others)
+    await requirePermission('view_analytics');
     const { db } = await connectToDatabase();
     const streamCollection = db.collection('stream_activities');
     const usersCollection = db.collection('users');

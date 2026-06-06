@@ -14,9 +14,23 @@ import {
     type UserProfileOutput 
 } from '@/ai/schemas/user-schemas';
 
+import { verifyAuth } from '@/lib/auth';
+
 export async function getUserProfile(input: GetUserProfileInput): Promise<UserProfileOutput | null> {
   const { userId } = input;
   try {
+    const caller = await verifyAuth();
+    if (!caller) {
+      console.warn('Unauthorized profile fetch attempt (no active session).');
+      return null;
+    }
+
+    const isAuthorized = caller.userId === userId || ['admin', 'Commander', 'Admin'].includes(caller.role);
+    if (!isAuthorized) {
+      console.warn(`User ${caller.email} attempted to fetch profile of ${userId}. Access denied.`);
+      return null;
+    }
+
     const { db } = await connectToDatabase();
     const usersCollection = db.collection<DBUserProfile>('users');
     const moviesCollection = db.collection('movies');
@@ -82,14 +96,24 @@ export async function getUserProfile(input: GetUserProfileInput): Promise<UserPr
 
 export async function updateUserProfile(input: UpdateUserProfileInput): Promise<UpdateUserProfileOutput> {
   try {
-    const { db } = await connectToDatabase();
-    const usersCollection = db.collection<DBUserProfile>('users');
+    const caller = await verifyAuth();
+    if (!caller) {
+      return { success: false, message: 'Unauthorized: Active session required.' };
+    }
 
     const { userId, ...updateData } = input;
 
     if (!ObjectId.isValid(userId)) {
       return { success: false, message: 'Invalid User ID format.' };
     }
+
+    const isAuthorized = caller.userId === userId || ['admin', 'Commander', 'Admin'].includes(caller.role);
+    if (!isAuthorized) {
+      return { success: false, message: 'Forbidden: You cannot modify another user\'s profile.' };
+    }
+
+    const { db } = await connectToDatabase();
+    const usersCollection = db.collection<DBUserProfile>('users');
 
     const fieldsToUpdate: Partial<Pick<DBUserProfile, 'name' | 'email' | 'avatarUrl'>> = {};
     if (updateData.name) fieldsToUpdate.name = updateData.name;
