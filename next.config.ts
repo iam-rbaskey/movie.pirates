@@ -1,9 +1,44 @@
 
 import type { NextConfig } from 'next';
 import path from 'path';
+import { execSync } from 'child_process';
+
+function getReleaseVersion(): string {
+  // Try to find the target commit SHA from Netlify / Vercel environment variables
+  const commitSha = process.env.COMMIT_REF || process.env.VERCEL_GIT_COMMIT_SHA || '';
+
+  try {
+    const gitTarget = commitSha ? ` ${commitSha}` : '';
+    const commitMsg = execSync(`git log --grep="Phase" -n 1 --format="%s"${gitTarget}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    if (commitMsg) {
+      const match = commitMsg.match(/Phase\s+[\d\.]+/i);
+      if (match) return match[0];
+      return commitMsg;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  try {
+    const gitTarget = commitSha ? ` ${commitSha}` : '';
+    const commitMsg = execSync(`git log -1 --format="%s"${gitTarget}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    if (commitMsg) {
+      const match = commitMsg.match(/Phase\s+[\d\.]+/i);
+      if (match) return match[0];
+      return commitMsg;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return 'Phase 5.1';
+}
 
 const nextConfig: NextConfig = {
   /* config options here */
+  env: {
+    NEXT_PUBLIC_RELEASE_VERSION: getReleaseVersion(),
+  },
   reactCompiler: true,
   outputFileTracingRoot: path.join(__dirname),
   typescript: {

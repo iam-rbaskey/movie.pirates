@@ -81,8 +81,18 @@ export default function Footer() {
         </div>
 
         {/* Bottom copyright statement */}
-        <div className="border-t border-border/30 md:border-t py-4 md:py-6 text-center text-[10px] md:text-xs text-muted-foreground pb-28 md:pb-6">
-          <p>&copy; {new Date().getFullYear()} Movie Pirates. All rights reserved. | Made with ❤️ by RBaskey</p>
+        <div className="border-t border-border/30 md:border-t py-4 md:py-6 text-center text-[10px] md:text-xs text-muted-foreground pb-28 md:pb-6 flex flex-col items-center justify-center gap-2">
+          <p className="flex flex-wrap items-center justify-center gap-1.5">
+            <span>&copy; {new Date().getFullYear()} Movie Pirates. All rights reserved. | Made with ❤️ by RBaskey</span>
+            {process.env.NEXT_PUBLIC_RELEASE_VERSION && (
+              <>
+                <span className="text-muted-foreground/45">•</span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase bg-[#FF5A5F]/10 text-[#FF5A5F] border border-[#FF5A5F]/20 shadow-[0_0_8px_rgba(255,90,95,0.08)]">
+                  {process.env.NEXT_PUBLIC_RELEASE_VERSION}
+                </span>
+              </>
+            )}
+          </p>
         </div>
       </div>
     </footer>
