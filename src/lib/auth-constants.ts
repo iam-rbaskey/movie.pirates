@@ -16,8 +16,9 @@ export const DEFAULT_PERMISSIONS: Record<string, Record<string, boolean>> = {
   "Content Manager": {
     "create_content": true, "edit_content": true, "delete_content": false, "publish_content": true, "archive_content": true, "manage_categories": true, "manage_media": true,
     "view_users": false, "ban_users": false, "delete_users": false, "assign_roles": false, "edit_permissions": false,
-    "view_analytics": true, "export_analytics": false, "view_logs": false,
-    "manage_settings": false, "manage_streaming": false, "manage_storage": false, "manage_mirrors": false, "manage_platform": false
+    "view_analytics": true, "export_analytics": false, "view_logs": true,
+    "manage_settings": true, "manage_streaming": false, "manage_storage": false, "manage_mirrors": false, "manage_platform": false,
+    "view_settings": true
   },
   "Contributor": {
     "create_content": true, "edit_content": true, "delete_content": false, "publish_content": false, "archive_content": false, "manage_categories": false, "manage_media": false,

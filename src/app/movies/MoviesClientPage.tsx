@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import MovieCard from '@/components/MovieCard';
 import { Film, Search as SearchIcon } from 'lucide-react'; 
 import { Input } from '@/components/ui/input';
+import { logSearchQuery } from '@/ai/flows/search-analytics-flow';
 import { type MovieOutput } from '@/ai/flows/movie-management-flow';
 import { useSearchParams } from 'next/navigation';
 
@@ -27,6 +28,23 @@ export default function MoviesClientPage({ movies }: { movies: MovieOutput[] }) 
       movie.director.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [movies, searchTerm]);
+
+  useEffect(() => {
+    if (!searchTerm.trim()) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        await logSearchQuery({
+          query: searchTerm,
+          resultsCount: filteredMovies.length
+        });
+      } catch (err) {
+        console.error("Failed to log search query:", err);
+      }
+    }, 1500); // 1.5s debounce
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, filteredMovies.length]);
 
   return (
     <div className="space-y-8 animate-fade-in py-8">

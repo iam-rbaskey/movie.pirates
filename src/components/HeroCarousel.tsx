@@ -5,7 +5,7 @@ import Image from 'next/image';
 import TransitionLink from '@/components/TransitionLink';
 import { Button } from '@/components/ui/button';
 import StarRating from '@/components/StarRating';
-import { Play, Info, Film } from 'lucide-react';
+import { Play, Info, Film, Download } from 'lucide-react';
 import type { MovieOutput } from '@/ai/schemas/movie-schemas';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -196,10 +196,10 @@ export default function HeroCarousel({ items }: { items: MovieOutput[] }) {
               <Button 
                 asChild 
                 size="lg" 
-                className="bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md text-white h-12 md:h-14 px-8 rounded-full text-sm font-semibold tracking-widest uppercase transition-all duration-300 hover:-translate-y-0.5"
+                className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 dark:border dark:border-emerald-500/20 dark:text-emerald-400 text-white h-12 md:h-14 px-8 rounded-full text-sm font-semibold tracking-widest uppercase transition-all duration-300 hover:-translate-y-0.5 shadow-md dark:shadow-[0_4px_12px_rgba(16,185,129,0.1)]"
               >
                 <a href={currentItem.trailerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center">
-                  <Film className="mr-2.5 h-4 w-4" /> Watch Trailer
+                  <Download className="mr-2.5 h-4 w-4" /> Download
                 </a>
               </Button>
             ) : (

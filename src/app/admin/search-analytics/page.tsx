@@ -1,12 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { getSuggestions, type SuggestionOutput } from '@/ai/flows/suggestion-flow';
+import { getSearchAnalytics } from '@/ai/flows/search-analytics-flow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Loader2, Search, TrendingUp, AlertCircle, HelpCircle, Compass, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
 
 interface KeywordRank {
   keyword: string;
@@ -15,8 +14,9 @@ interface KeywordRank {
 }
 
 export default function SearchAnalyticsPage() {
-  const [suggestions, setSuggestions] = useState<SuggestionOutput[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [totalQueries, setTotalQueries] = useState(0);
+  const [successRate, setSuccessRate] = useState(100);
   const [keywordRanks, setKeywordRanks] = useState<KeywordRank[]>([]);
   const [timelineData, setTimelineData] = useState<any[]>([]);
   const [failedSearches, setFailedSearches] = useState<string[]>([]);
@@ -24,69 +24,18 @@ export default function SearchAnalyticsPage() {
   const fetchSearchData = async () => {
     setIsLoading(true);
     try {
-      const fetched = await getSuggestions();
-      setSuggestions(fetched);
+      const res = await getSearchAnalytics();
+      setTotalQueries(res.totalQueries);
+      setSuccessRate(res.successRate);
+      setKeywordRanks(res.trendingKeywords);
+      setTimelineData(res.timelineData);
       
-      // 1. Analyze Keywords (Aggregate words from suggestions)
-      const wordCounts: Record<string, number> = {};
-      const stopwords = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'for', 'with', 'in', 'on', 'at', 'to', 'of', 'movies', 'movie', 'show', 'shows', 'like', 'similar', 'about', 'recommend', 'suggest']);
-      
-      fetched.forEach(item => {
-        const words = item.text.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/);
-        words.forEach(w => {
-          if (w.length > 2 && !stopwords.has(w)) {
-            wordCounts[w] = (wordCounts[w] || 0) + 1;
-          }
-        });
-      });
-      
-      const sortedKeywords: KeywordRank[] = Object.keys(wordCounts)
-        .map(key => ({ keyword: key, count: wordCounts[key], rank: 0 }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-      
-      sortedKeywords.forEach((item, idx) => {
-        item.rank = idx + 1;
-      });
-      setKeywordRanks(sortedKeywords);
-      
-      // 2. Build Timeline Data (Aggregate search queries by day)
-      const dateCounts: Record<string, number> = {};
-      fetched.forEach(item => {
-        try {
-          const dateStr = format(new Date(item.createdAt), 'MMM dd');
-          dateCounts[dateStr] = (dateCounts[dateStr] || 0) + 1;
-        } catch {
-          // ignore
-        }
-      });
-      
-      // Generate last 7 days of timeline
-      const timeline = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const key = format(d, 'MMM dd');
-        timeline.push({
-          date: key,
-          queries: dateCounts[key] || 0
-        });
-      }
-      setTimelineData(timeline);
-
-      // 3. Extract "Failed" searches (queries that have complex or overly niche prompts)
-      const fails = fetched
-        .map(item => item.text)
-        .filter(text => text.length > 50 || text.toLowerCase().includes('failed') || text.toLowerCase().includes('nothing') || text.toLowerCase().includes('not found'))
-        .slice(0, 5);
-      
-      // If we don't have complex prompts in DB, fallback to typical niche ones
-      setFailedSearches(fails.length > 0 ? fails : [
+      // If we don't have complex/failed searches in DB, fallback to typical niche ones
+      setFailedSearches(res.failedSearches.length > 0 ? res.failedSearches : [
         "Sci-fi movies with medieval dynamic values",
         "Movies about quantum mechanics with zero mathematical errors",
         "Documentary on deep space travel starring Keanu Reeves"
       ]);
-      
     } catch (e) {
       console.error("Failed to aggregate search analytics:", e);
     } finally {
@@ -137,8 +86,8 @@ export default function SearchAnalyticsPage() {
             <Search className="w-4 h-4 text-[#FF5A5F]" />
           </CardHeader>
           <CardContent className="p-0 space-y-1">
-            <div className="text-3xl font-extrabold text-white">{suggestions.length}</div>
-            <p className="text-[10px] text-[#666666] font-medium">Real entries from DB suggestions</p>
+            <div className="text-3xl font-extrabold text-white">{totalQueries}</div>
+            <p className="text-[10px] text-[#666666] font-medium">Real search queries logged in DB</p>
           </CardContent>
         </Card>
 
@@ -151,7 +100,7 @@ export default function SearchAnalyticsPage() {
             <div className="text-3xl font-extrabold text-white capitalize">
               {keywordRanks[0]?.keyword || "N/A"}
             </div>
-            <p className="text-[10px] text-[#666666] font-medium">Occurred {keywordRanks[0]?.count || 0} times in prompts</p>
+            <p className="text-[10px] text-[#666666] font-medium">Occurred {keywordRanks[0]?.count || 0} times in queries</p>
           </CardContent>
         </Card>
 
@@ -161,8 +110,8 @@ export default function SearchAnalyticsPage() {
             <Compass className="w-4 h-4 text-[#FF5A5F]" />
           </CardHeader>
           <CardContent className="p-0 space-y-1">
-            <div className="text-3xl font-extrabold text-white">92.4%</div>
-            <p className="text-[10px] text-[#666666] font-medium">AI response matching integrity</p>
+            <div className="text-3xl font-extrabold text-white">{successRate}%</div>
+            <p className="text-[10px] text-[#666666] font-medium">Percentage of queries returning content</p>
           </CardContent>
         </Card>
       </div>

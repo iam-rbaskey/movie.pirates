@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { MovieOutput } from '@/ai/flows/movie-management-flow';
 import { useSearchParams } from 'next/navigation';
+import { logSearchQuery } from '@/ai/flows/search-analytics-flow';
 
 export default function SeriesClientPage({ series }: { series: MovieOutput[] }) {
   const searchParams = useSearchParams();
@@ -27,6 +28,24 @@ export default function SeriesClientPage({ series }: { series: MovieOutput[] }) 
     item.genres.some(genre => genre.toLowerCase().includes(searchTerm.toLowerCase())) ||
     item.director.toLowerCase().includes(searchTerm.toLowerCase())
   ), [series, searchTerm]);
+
+  useEffect(() => {
+    if (!searchTerm.trim()) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        await logSearchQuery({
+          query: searchTerm,
+          resultsCount: filteredSeries.length
+        });
+      } catch (err) {
+        console.error("Failed to log search query:", err);
+      }
+    }, 1500); // 1.5s debounce
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, filteredSeries.length]);
+
 
   return (
     <div className="space-y-8 animate-fade-in py-8">

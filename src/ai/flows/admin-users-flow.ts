@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { type UserProfile as DBUserProfileType } from '@/types';
 import { ObjectId } from 'mongodb';
-import { verifyAuth } from '@/lib/auth';
+import { verifyAuth, requirePermission } from '@/lib/auth';
 import { ROLE_HIERARCHY_LEVELS, DEFAULT_PERMISSIONS } from '@/lib/auth-constants';
 import { logAuditEvent } from './audit-log-flow';
 
@@ -63,12 +63,7 @@ export type DeleteUserByAdminOutput = z.infer<typeof DeleteUserByAdminOutputSche
 
 export async function getUsers(): Promise<GetUsersOutput | { error: string }> {
   try {
-    const caller = await verifyAuth();
-    const isUserAdmin = caller?.role === 'Commander' || ['admin', 'Commander', 'Admin', 'Content Manager', 'Contributor'].includes(caller?.role || '');
-    if (!caller || !isUserAdmin) {
-      console.warn("Unauthorized user listing attempt by:", caller?.email);
-      return [];
-    }
+    const caller = await requirePermission('view_users');
 
     const { db } = await connectToDatabase();
     const usersCollection = db.collection<Omit<DBUserProfileType, 'password'>>('users');
@@ -114,10 +109,13 @@ export async function getUsers(): Promise<GetUsersOutput | { error: string }> {
 export async function updateUserByAdmin(input: UpdateUserByAdminInput): Promise<UpdateUserByAdminOutput> {
   const { userId, ...updateData } = input;
   try {
-    const caller = await verifyAuth();
-    const isUserAdmin = caller?.role === 'Commander' || ['admin', 'Commander', 'Admin', 'Content Manager', 'Contributor'].includes(caller?.role || '');
-    if (!caller || !isUserAdmin) {
-      return { success: false, message: 'Unauthorized: Administrator privileges required.' };
+    let caller;
+    if (updateData.role !== undefined || updateData.hierarchyLevel !== undefined) {
+      caller = await requirePermission('assign_roles');
+    } else if (updateData.permissions !== undefined) {
+      caller = await requirePermission('edit_permissions');
+    } else {
+      caller = await requirePermission('assign_roles');
     }
 
     if (!ObjectId.isValid(userId)) {
@@ -220,11 +218,7 @@ export async function updateUserByAdmin(input: UpdateUserByAdminInput): Promise<
 export async function deleteUserByAdmin(input: DeleteUserByAdminInput): Promise<DeleteUserByAdminOutput> {
   const { userId } = input;
   try {
-    const caller = await verifyAuth();
-    const isUserAdmin = caller?.role === 'Commander' || ['admin', 'Commander', 'Admin', 'Content Manager', 'Contributor'].includes(caller?.role || '');
-    if (!caller || !isUserAdmin) {
-      return { success: false, message: 'Unauthorized: Administrator privileges required.' };
-    }
+    const caller = await requirePermission('delete_users');
 
     if (!ObjectId.isValid(userId)) {
       return { success: false, message: 'Invalid User ID format.' };

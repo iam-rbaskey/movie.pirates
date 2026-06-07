@@ -32,7 +32,8 @@ export async function middleware(request: NextRequest) {
       const { payload } = await jose.jwtVerify(token, JWT_SECRET_BYTES);
       
       const payloadRole = payload.role as string;
-      const isUserAdmin = payload.email === 'rbaskeydomi2018@gmail.com' || ['admin', 'Commander', 'Admin', 'Content Manager', 'Contributor'].includes(payloadRole);
+      const isCommander = payload.email === 'rbaskeydomi2018@gmail.com' || payloadRole === 'Commander';
+      const isUserAdmin = isCommander || ['admin', 'Commander', 'Admin', 'Content Manager', 'Contributor'].includes(payloadRole);
       
       if (!isUserAdmin) {
         if (isServerAction) {
@@ -40,6 +41,27 @@ export async function middleware(request: NextRequest) {
         }
         const loginUrl = new URL('/auth/login', request.url);
         return NextResponse.redirect(loginUrl);
+      }
+
+      // Restrict sub-routes of /admin
+      if (pathname.startsWith('/admin/users') || pathname.startsWith('/admin/roles')) {
+        const hasAccess = isCommander || payloadRole === 'Admin' || payloadRole === 'admin';
+        if (!hasAccess) {
+          if (isServerAction) {
+            return NextResponse.json({ error: 'Forbidden: Insufficient permissions.' }, { status: 403 });
+          }
+          return NextResponse.redirect(new URL('/admin', request.url));
+        }
+      }
+
+      if (pathname.startsWith('/admin/settings') || pathname.startsWith('/admin/logs')) {
+        const hasAccess = isCommander || ['Admin', 'admin', 'Content Manager'].includes(payloadRole);
+        if (!hasAccess) {
+          if (isServerAction) {
+            return NextResponse.json({ error: 'Forbidden: Insufficient permissions.' }, { status: 403 });
+          }
+          return NextResponse.redirect(new URL('/admin', request.url));
+        }
       }
       
       return NextResponse.next();

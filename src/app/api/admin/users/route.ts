@@ -40,12 +40,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Resolve caller role
+    // Resolve caller role and permissions
     const isCommander = userDoc.email === 'rbaskeydomi2018@gmail.com';
     const resolvedRole = isCommander ? 'Commander' : (userDoc.role || 'User');
-    const isUserAdmin = isCommander || ['admin', 'Commander', 'Admin', 'Content Manager', 'Contributor'].includes(resolvedRole);
+    
+    const dbPermissions = userDoc.permissions || {};
+    const defaultRolePerms = DEFAULT_PERMISSIONS[resolvedRole] || DEFAULT_PERMISSIONS['User'];
+    const permissions = isCommander ? DEFAULT_PERMISSIONS['Commander'] : { ...defaultRolePerms, ...dbPermissions };
 
-    if (!isUserAdmin) {
+    const hasViewUsers = isCommander || permissions['view_users'] === true;
+
+    if (!hasViewUsers) {
       return NextResponse.json(
         { error: 'Forbidden: Insufficient permissions to list users.' },
         { status: 403 }

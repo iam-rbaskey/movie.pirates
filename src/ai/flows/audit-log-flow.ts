@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
-import { verifyAuth } from '@/lib/auth';
+import { verifyAuth, requirePermission } from '@/lib/auth';
 
 const AuditLogInputSchema = z.object({
   action: z.string(),
@@ -39,11 +39,7 @@ export async function logAuditEvent(input: AuditLogInput) {
 
 export async function getAuditLogs() {
   try {
-    const caller = await verifyAuth();
-    const isUserAdmin = caller?.role === 'Commander' || ['admin', 'Commander', 'Admin', 'Content Manager', 'Contributor'].includes(caller?.role || '');
-    if (!caller || !isUserAdmin) {
-      throw new Error("Unauthorized: Access to logs is restricted to administrators only.");
-    }
+    const caller = await requirePermission('view_logs');
 
     const { db } = await connectToDatabase();
     const logs = await db.collection('audit_logs')
