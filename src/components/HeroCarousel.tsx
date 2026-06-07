@@ -7,13 +7,14 @@ import { Button } from '@/components/ui/button';
 import StarRating from '@/components/StarRating';
 import { Play, Info, Film, Download } from 'lucide-react';
 import type { MovieOutput } from '@/ai/schemas/movie-schemas';
-import { cn } from '@/lib/utils';
+import { cn, isTvDevice } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function HeroCarousel({ items }: { items: MovieOutput[] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(1); // 1 = next, -1 = prev
   const [isMobile, setIsMobile] = useState(false);
+  const [isTv, setIsTv] = useState(false);
 
   // Monitor size to disable resource-intensive animations on mobile
   useEffect(() => {
@@ -22,8 +23,14 @@ export default function HeroCarousel({ items }: { items: MovieOutput[] }) {
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
+    
+    // Check if it's a TV device
+    setIsTv(isTvDevice());
+    
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  const shouldDisableAnim = isMobile || isTv;
 
   const handleSlideChange = useCallback((newIndex: number) => {
     if (newIndex === currentIndex) return;
@@ -63,9 +70,9 @@ export default function HeroCarousel({ items }: { items: MovieOutput[] }) {
     setImgSrc(sanitizedSrc);
   }, [sanitizedSrc]);
 
-  // Helper helper to bypass animations on mobile
+  // Helper helper to bypass animations on mobile/TV
   const animVariants = (delay: number, yOffset = 15) => {
-    if (isMobile) {
+    if (shouldDisableAnim) {
       return {
         initial: { opacity: 1, y: 0 },
         animate: { opacity: 1, y: 0 },
@@ -87,10 +94,10 @@ export default function HeroCarousel({ items }: { items: MovieOutput[] }) {
           {imgSrc && (
             <motion.div
               key={`${currentItem.id}-${currentIndex}`}
-              initial={isMobile ? { opacity: 1 } : { scale: 1.05, opacity: 0 }}
-              animate={isMobile ? { opacity: 1 } : { scale: 1.15, opacity: 1 }}
+              initial={shouldDisableAnim ? { opacity: 1 } : { scale: 1.05, opacity: 0 }}
+              animate={shouldDisableAnim ? { opacity: 1 } : { scale: 1.15, opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={isMobile ? { duration: 0.1 } : { duration: 7, ease: "easeOut" }}
+              transition={shouldDisableAnim ? { duration: 0.1 } : { duration: 7, ease: "easeOut" }}
               className="absolute inset-0 w-full h-full"
             >
               <Image
@@ -219,7 +226,7 @@ export default function HeroCarousel({ items }: { items: MovieOutput[] }) {
         {/* Carousel Indicators / Slider dots */}
         {items.length > 1 && (
           <motion.div 
-            {...(isMobile ? { initial: { opacity: 1 }, animate: { opacity: 1 } } : { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { delay: 0.8 } })}
+            {...(shouldDisableAnim ? { initial: { opacity: 1 }, animate: { opacity: 1 } } : { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { delay: 0.8 } })}
             className="flex md:flex-col items-center justify-center gap-3 bg-black/40 border border-white/5 backdrop-blur-md p-3.5 rounded-full self-center md:self-end"
           >
             {items.map((_, index) => (

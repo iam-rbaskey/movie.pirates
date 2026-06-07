@@ -48,6 +48,22 @@ export default function RootLayout({
          <title>Movie Pirates - Your Movie Universe</title>
           <meta name="description" content="Discover, rate, and review movies on Movie Pirates." />
           <meta name="google-site-verification" content="google76fa96448a07af65.html" />
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function() {
+            var ua = navigator.userAgent || '';
+            var tvKeywords = [
+              'smarttv', 'googletv', 'appletv', 'androidtv', 'roku', 'hbbtv', 'tizen', 
+              'web0s', 'webos', 'viera', 'casttv', 'opera tv', 'sonydtv', 'playstation', 
+              'xbox', 'dtv', 'smart-tv', 'bravia', 'philips-tv', 'sharp-tv', 'panasonic-tv',
+              'lgnetcast', 'nettv', 'crkey', 'chromecast', 'vizio', 'apple tv', 'firetv', 'firestick'
+            ];
+            var isTv = tvKeywords.some(function(k) { return ua.toLowerCase().indexOf(k) > -1; });
+            if (isTv) {
+              document.documentElement.classList.add('is-tv');
+              document.documentElement.setAttribute('data-is-tv', 'true');
+            }
+          })();
+        ` }} />
         <Script
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1842234499258946"
           crossOrigin="anonymous"

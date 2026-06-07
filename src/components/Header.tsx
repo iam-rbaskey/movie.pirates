@@ -36,7 +36,7 @@ import { updateUserActivity } from '@/ai/flows/user-activity-flow';
 import { trackAnonymousVisitor } from '@/ai/flows/visitor-tracking-flow';
 import { Logo } from './icons/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { cn } from '@/lib/utils';
+import { cn, isTvDevice } from '@/lib/utils';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -59,9 +59,14 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [isTv, setIsTv] = useState(false);
 
   // Monitor scroll for header shrinking and blur intensification
   useEffect(() => {
+    const tv = isTvDevice();
+    setIsTv(tv);
+    if (tv) return;
+
     const handleScroll = () => {
       if (window.scrollY > 20) {
         setIsScrolled(true);
@@ -72,6 +77,7 @@ export default function Header() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
 
   useEffect(() => {
     setIsClient(true);
@@ -171,10 +177,15 @@ export default function Header() {
       {/* DESKTOP FLOATING NAVBAR */}
       <header
         className={cn(
-          "fixed left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-7xl transition-all duration-500 ease-out rounded-full border glassmorphism hidden md:block",
-          isScrolled 
-            ? "top-4 h-[60px] bg-background/85 backdrop-blur-[24px] border-primary/20 shadow-[0_15px_40px_rgba(0,0,0,0.65)]" 
-            : "top-6 h-[76px] bg-background/45 backdrop-blur-[16px] border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.45)]"
+          "fixed left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-7xl rounded-full border hidden md:block",
+          isTv
+            ? "top-4 h-[64px] bg-[#0A0A0A] border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.8)]"
+            : cn(
+                "transition-all duration-500 ease-out glassmorphism",
+                isScrolled 
+                  ? "top-4 h-[60px] bg-background/85 backdrop-blur-[24px] border-primary/20 shadow-[0_15px_40px_rgba(0,0,0,0.65)]" 
+                  : "top-6 h-[76px] bg-background/45 backdrop-blur-[16px] border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.45)]"
+              )
         )}
       >
         <div className="h-full px-6 flex items-center justify-between">

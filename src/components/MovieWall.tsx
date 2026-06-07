@@ -8,6 +8,7 @@ import { type MovieOutput } from '@/ai/flows/movie-management-flow';
 import { Card } from '@/components/ui/card';
 import { ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { isTvDevice } from '@/lib/utils';
 
 interface MovieWallProps {
     movies: MovieOutput[];
@@ -17,6 +18,7 @@ export default function MovieWall({ movies }: MovieWallProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
     const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
+    const [isTv, setIsTv] = useState(false);
 
     // Handle window constraints (optional, but good for centering initially)
     useEffect(() => {
@@ -29,6 +31,9 @@ export default function MovieWall({ movies }: MovieWallProps) {
 
         handleResize(); // Initial size
         window.addEventListener('resize', handleResize);
+        
+        setIsTv(isTvDevice());
+        
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
@@ -124,8 +129,8 @@ export default function MovieWall({ movies }: MovieWallProps) {
                             width: CARD_WIDTH + GAP,
                             height: CARD_HEIGHT + GAP,
                         }}
-                        whileHover={{ scale: 1.05, zIndex: 10 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={isTv ? undefined : { scale: 1.05, zIndex: 10 }}
+                        whileTap={isTv ? undefined : { scale: 0.95 }}
                     >
                         <Link href={`/movies/${movie.id}`}>
                             <Card
